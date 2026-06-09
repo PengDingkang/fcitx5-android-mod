@@ -102,3 +102,9 @@ lint/tmp/
 
 ### Kotlin ###
 .kotlin/
+
+# Local release signing
+*.jks
+*.keystore
+*.ks
+keystore.properties

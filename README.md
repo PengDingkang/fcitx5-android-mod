@@ -83,8 +83,8 @@ Discuss on Telegram: [@fcitx5_android_group](https://t.me/fcitx5_android_group) 
 
 ### Dependencies
 
-- Android SDK Platform & Build-Tools 35.
-- Android NDK (Side by side) 25 & CMake 3.22.1, they can be installed using SDK Manager in Android Studio or `sdkmanager` command line.
+- Android SDK Platform 36 & Build-Tools 36.1.0.
+- Android NDK (Side by side) 28.0.13004108 & CMake 3.31.6, they can be installed using SDK Manager in Android Studio or `sdkmanager` command line.
 - [KDE/extra-cmake-modules](https://github.com/KDE/extra-cmake-modules)
 - GNU Gettext >= 0.20 (for `msgfmt` binary; or install `appstream` if you really have to use gettext <= 0.19.)
 
@@ -129,6 +129,10 @@ pacman -S mingw-w64-ucrt-x86_64-extra-cmake-modules mingw-w64-ucrt-x86_64-gettex
 
 Install Android SDK Platform, Android SDK Build-Tools, Android NDK and cmake via SDK Manager in Android Studio:
 
+```shell
+sdkmanager "platforms;android-36" "build-tools;36.1.0" "ndk;28.0.13004108" "cmake;3.31.6"
+```
+
 <details>
 <summary>Detailed steps (screenshots)</summary>
 
@@ -146,6 +150,36 @@ The current recommended versions are recorded in [Versions.kt](build-logic/conve
 ![Install CMake](https://user-images.githubusercontent.com/13914967/202184655-3c1ab47c-432f-4bd7-a508-92096482de50.png)
 
 </details>
+
+### Local mod development
+
+For local Android phone development, build one ABI instead of all split APKs. Set this in the ignored `local.properties` file:
+
+```properties
+buildABI=arm64-v8a
+```
+
+You can still override it for a single command:
+
+```shell
+./gradlew :app:assembleDebug -PbuildABI=arm64-v8a
+./gradlew :app:assembleRelease -PbuildABI=arm64-v8a
+```
+
+Without an override, release and debug builds generate all supported ABI splits. The version name defaults to `git describe --tags --long --always`; ABI split version codes are `baseVersionCode * 10 + abiId`, where `arm64-v8a` has ABI id `2`.
+
+Do not enable Gradle configuration cache globally yet. Lightweight tasks may reuse it, but full Android/native assemble currently has custom CMake install tasks that are not configuration-cache compatible.
+
+For local release signing, create an ignored `keystore.properties` file:
+
+```properties
+storeFile=/absolute/path/to/release.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
+```
+
+CI signing still uses `SIGN_KEY_FILE` or `SIGN_KEY_BASE64`, `SIGN_KEY_PWD`, `SIGN_KEY_ALIAS`, and optionally `SIGN_KEY_KEY_PWD`.
 
 ### Trouble-shooting
 

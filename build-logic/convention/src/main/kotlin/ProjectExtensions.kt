@@ -10,6 +10,8 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.kotlin.dsl.the
 import java.io.File
+import java.io.FileInputStream
+import java.util.Properties
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
@@ -57,20 +59,71 @@ val Project.buildTimestamp
     }
 
 val Project.buildAbiOverride: String?
-    get() = epn("BUILD_ABI", "buildABI")
+    get() = epn("BUILD_ABI", "buildABI") ?: localBuildProperty("buildABI")
 
 val Project.signKeyBase64: String?
-    get() = epn("SIGN_KEY_BASE64", "signKeyBase64")
+    get() = if (ciSigningBuild) epn("SIGN_KEY_BASE64", "signKeyBase64") else null
 
 val Project.signKeyFile: String?
-    get() = epn("SIGN_KEY_FILE", "signKeyFile")
+    get() = signingProperty("SIGN_KEY_FILE", "signKeyFile", "storeFile", "signKeyFile")
+
+private fun File.loadPropertiesOrEmpty(): Properties {
+    return Properties().apply {
+        if (this@loadPropertiesOrEmpty.isFile) {
+            FileInputStream(this@loadPropertiesOrEmpty).use(::load)
+        }
+    }
+}
+
+private val Project.ciSigningBuild: Boolean
+    get() = System.getenv("GITHUB_ACTIONS").equals("true", ignoreCase = true) ||
+            System.getenv("CI").equals("true", ignoreCase = true)
+
+private val Project.localBuildPropertiesFile: File
+    get() = rootProject.file("local.properties")
+
+private val Project.localBuildProperties: Properties
+    get() = localBuildPropertiesFile.loadPropertiesOrEmpty()
+
+private fun Properties.firstNonBlank(vararg names: String): String? {
+    return names.firstNotNullOfOrNull { name ->
+        getProperty(name)?.trim()?.takeIf { it.isNotEmpty() }
+    }
+}
+
+private fun Project.localBuildProperty(vararg names: String): String? {
+    return localBuildProperties.firstNonBlank(*names)
+}
+
+private val Project.localSigningPropertiesFile: File
+    get() = rootProject.file("keystore.properties")
+
+private val Project.localSigningProperties: Properties
+    get() = localSigningPropertiesFile.loadPropertiesOrEmpty()
+
+private fun Project.localSigningProperty(vararg names: String): String? {
+    return localSigningProperties.firstNonBlank(*names)
+}
+
+private fun Project.signingProperty(env: String, prop: String, vararg localNames: String): String? {
+    return if (ciSigningBuild) {
+        epn(env, prop)
+    } else {
+        localSigningProperty(*localNames)
+    }
+}
+
+private fun Project.resolveSigningFile(path: String): File {
+    val file = File(path)
+    return if (file.isAbsolute) file else rootProject.file(path)
+}
 
 private var signKeyTempFile: File? = null
 
 val Project.signKey: File?
     get() {
         signKeyFile?.let {
-            val file = File(it)
+            val file = resolveSigningFile(it)
             if (file.exists()) return file
         }
         @OptIn(ExperimentalEncodingApi::class)
@@ -95,10 +148,18 @@ val Project.signKey: File?
     }
 
 val Project.signKeyPwd: String?
-    get() = epn("SIGN_KEY_PWD", "signKeyPwd")
+    get() = signingProperty("SIGN_KEY_PWD", "signKeyPwd", "storePassword", "signKeyPwd")
 
 val Project.signKeyAlias: String?
-    get() = epn("SIGN_KEY_ALIAS", "signKeyAlias")
+    get() = signingProperty("SIGN_KEY_ALIAS", "signKeyAlias", "keyAlias", "signKeyAlias")
+
+val Project.signKeyKeyPwd: String?
+    get() = signingProperty(
+        "SIGN_KEY_KEY_PWD",
+        "signKeyKeyPwd",
+        "keyPassword",
+        "signKeyKeyPwd"
+    ) ?: signKeyPwd
 
 fun NamedDomainObjectContainer<out ApkSigningConfig>.fromProjectEnv(project: Project): ApkSigningConfig? {
     val keyFile = project.signKey ?: return null
@@ -107,6 +168,6 @@ fun NamedDomainObjectContainer<out ApkSigningConfig>.fromProjectEnv(project: Pro
         storeFile = keyFile
         storePassword = project.signKeyPwd
         keyAlias = project.signKeyAlias
-        keyPassword = project.signKeyPwd
+        keyPassword = project.signKeyKeyPwd
     }
 }
