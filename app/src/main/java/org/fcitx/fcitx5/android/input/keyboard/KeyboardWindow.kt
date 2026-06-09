@@ -9,12 +9,14 @@ import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
+import androidx.annotation.Keep
 import androidx.core.content.ContextCompat
 import androidx.transition.Slide
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.core.CapabilityFlags
 import org.fcitx.fcitx5.android.core.InputMethodEntry
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
+import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.input.bar.KawaiiBarComponent
 import org.fcitx.fcitx5.android.input.broadcast.InputBroadcastReceiver
 import org.fcitx.fcitx5.android.input.broadcast.ReturnKeyDrawableComponent
@@ -65,9 +67,26 @@ class KeyboardWindow : InputWindow.SimpleInputWindow<KeyboardWindow>(), Essentia
 
     private lateinit var keyboardView: FrameLayout
 
+    private val keyboardNumberRowMode = AppPrefs.getInstance().keyboard.keyboardNumberRowMode
+    private var currentInputMethod: InputMethodEntry? = null
+    private var currentPunctuationMapping: Map<String, String> = emptyMap()
+    private var currentTextKeyboardNumberRowLayout: TextKeyboardNumberRowLayout? = null
+
+    private val textKeyboardNumberRowLayout: TextKeyboardNumberRowLayout
+        get() = TextKeyboardNumberRowLayout.from(
+            currentInputMethod ?: fcitx.runImmediately { inputMethodEntryCached }
+        )
+
+    @Keep
+    private val keyboardNumberRowModeListener = ManagedPreference.OnChangeListener<NumberRowMode> { _, _ ->
+        ContextCompat.getMainExecutor(service).execute {
+            recreateTextKeyboard()
+        }
+    }
+
     private val keyboards: HashMap<String, BaseKeyboard> by lazy {
         hashMapOf(
-            TextKeyboard.Name to TextKeyboard(context, theme),
+            TextKeyboard.Name to createTextKeyboard(),
             NumberKeyboard.Name to NumberKeyboard(context, theme)
         )
     }
@@ -91,6 +110,7 @@ class KeyboardWindow : InputWindow.SimpleInputWindow<KeyboardWindow>(), Essentia
     // This will be called EXACTLY ONCE
     override fun onCreateView(): View {
         keyboardView = context.frameLayout(R.id.keyboard_view)
+        keyboardNumberRowMode.registerOnChangeListener(keyboardNumberRowModeListener)
         attachLayout(TextKeyboard.Name)
         return keyboardView
     }
@@ -112,7 +132,28 @@ class KeyboardWindow : InputWindow.SimpleInputWindow<KeyboardWindow>(), Essentia
             keyboardView.apply { add(it, lParams(matchParent, matchParent)) }
             it.onAttach()
             it.onReturnDrawableUpdate(returnKeyDrawable.resourceId)
-            it.onInputMethodUpdate(fcitx.runImmediately { inputMethodEntryCached })
+            it.onPunctuationUpdate(currentPunctuationMapping)
+            it.onInputMethodUpdate(currentInputMethod ?: fcitx.runImmediately { inputMethodEntryCached })
+        }
+    }
+
+    private fun createTextKeyboard(): TextKeyboard {
+        val layout = textKeyboardNumberRowLayout
+        currentTextKeyboardNumberRowLayout = layout
+        return TextKeyboard(context, theme, layout)
+    }
+
+    private fun recreateTextKeyboard() {
+        val wasCurrent = currentKeyboardName == TextKeyboard.Name
+        if (wasCurrent && this::keyboardView.isInitialized) {
+            detachCurrentLayout()
+        }
+        keyboards[TextKeyboard.Name] = createTextKeyboard()
+        if (wasCurrent && this::keyboardView.isInitialized) {
+            attachLayout(TextKeyboard.Name)
+            if (windowManager.isAttached(this)) {
+                notifyBarLayoutChanged()
+            }
         }
     }
 
@@ -148,10 +189,21 @@ class KeyboardWindow : InputWindow.SimpleInputWindow<KeyboardWindow>(), Essentia
     }
 
     override fun onImeUpdate(ime: InputMethodEntry) {
+        val oldNumberRowLayout = currentTextKeyboardNumberRowLayout ?: textKeyboardNumberRowLayout
+        currentInputMethod = ime
+        val newNumberRowLayout = textKeyboardNumberRowLayout
+        if (
+            keyboardNumberRowMode.getValue() == NumberRowMode.Always &&
+            oldNumberRowLayout != newNumberRowLayout
+        ) {
+            recreateTextKeyboard()
+            return
+        }
         currentKeyboard?.onInputMethodUpdate(ime)
     }
 
     override fun onPunctuationUpdate(mapping: Map<String, String>) {
+        currentPunctuationMapping = mapping
         currentKeyboard?.onPunctuationUpdate(mapping)
     }
 

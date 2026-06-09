@@ -34,6 +34,8 @@ import org.fcitx.fcitx5.android.input.broadcast.ReturnKeyDrawableComponent
 import org.fcitx.fcitx5.android.input.candidates.horizontal.HorizontalCandidateComponent
 import org.fcitx.fcitx5.android.input.keyboard.CommonKeyActionListener
 import org.fcitx.fcitx5.android.input.keyboard.KeyboardWindow
+import org.fcitx.fcitx5.android.input.keyboard.NumberRowMode
+import org.fcitx.fcitx5.android.input.keyboard.TextKeyboard
 import org.fcitx.fcitx5.android.input.picker.emojiPicker
 import org.fcitx.fcitx5.android.input.picker.emoticonPicker
 import org.fcitx.fcitx5.android.input.picker.symbolPicker
@@ -64,6 +66,7 @@ import splitties.views.dsl.core.view
 import splitties.views.dsl.core.withTheme
 import splitties.views.dsl.core.wrapContent
 import splitties.views.imageDrawable
+import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class InputView(
@@ -143,6 +146,7 @@ class InputView(
     private val keyboardRightPaddingLandscape = keyboardPrefs.keyboardRightPaddingLandscape
     private val keyboardBottomPadding = keyboardPrefs.keyboardBottomPadding
     private val keyboardBottomPaddingLandscape = keyboardPrefs.keyboardBottomPaddingLandscape
+    private val keyboardNumberRowMode = keyboardPrefs.keyboardNumberRowMode
 
     private val keyboardSizePrefs = listOf(
         keyboardHeightPercent,
@@ -155,6 +159,7 @@ class InputView(
         keyboardRightPaddingLandscape,
         keyboardBottomPadding,
         keyboardBottomPaddingLandscape,
+        keyboardNumberRowMode,
     )
 
     private val keyboardHeightPx: Int
@@ -163,7 +168,12 @@ class InputView(
                 Configuration.ORIENTATION_LANDSCAPE -> keyboardHeightPercentLandscape
                 else -> keyboardHeightPercent
             }.getValue()
-            return resources.displayMetrics.heightPixels * percent / 100
+            val baseHeight = resources.displayMetrics.heightPixels * percent / 100
+            return if (keyboardNumberRowMode.getValue() == NumberRowMode.Always) {
+                (baseHeight * TextKeyboard.NumberRowHeightScale).roundToInt()
+            } else {
+                baseHeight
+            }
         }
 
     private fun ManagedPreference.PInt.getValueOrFallback(fallback: ManagedPreference.PInt): Int {

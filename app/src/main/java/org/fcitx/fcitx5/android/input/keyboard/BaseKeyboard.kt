@@ -35,6 +35,7 @@ import splitties.views.dsl.constraintlayout.constraintLayout
 import splitties.views.dsl.constraintlayout.lParams
 import splitties.views.dsl.constraintlayout.leftOfParent
 import splitties.views.dsl.constraintlayout.leftToRightOf
+import splitties.views.dsl.constraintlayout.matchConstraints
 import splitties.views.dsl.constraintlayout.rightOfParent
 import splitties.views.dsl.constraintlayout.rightToLeftOf
 import splitties.views.dsl.constraintlayout.topOfParent
@@ -46,7 +47,8 @@ import kotlin.math.roundToInt
 abstract class BaseKeyboard(
     context: Context,
     protected val theme: Theme,
-    private val keyLayout: List<List<KeyDef>>
+    private val keyLayout: List<List<KeyDef>>,
+    private val rowHeightWeights: List<Float> = List(keyLayout.size) { 1f }
 ) : ConstraintLayout(context) {
 
     var keyActionListener: KeyActionListener? = null
@@ -133,12 +135,13 @@ abstract class BaseKeyboard(
             }
         }
         keyRows.forEachIndexed { index, row ->
-            add(row, lParams {
+            add(row, lParams(matchConstraints, matchConstraints) {
                 if (index == 0) topOfParent()
                 else below(keyRows[index - 1])
                 if (index == keyRows.size - 1) bottomOfParent()
                 else above(keyRows[index + 1])
                 centerHorizontally()
+                verticalWeight = rowHeightWeights[index]
             })
         }
         spaceSwipeMoveCursor.registerOnChangeListener(spaceSwipeChangeListener)

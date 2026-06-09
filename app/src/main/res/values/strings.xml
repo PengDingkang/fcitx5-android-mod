@@ -199,6 +199,10 @@
     <string name="notification_permission_message">Without the permission to post notifications, we are not able to notify you when some time-consuming operations are done.</string>
     <string name="notification_permission_title">No Notification Permission</string>
     <string name="toolbar_num_row_on_password">Show number row on toolbar when inputting password</string>
+    <string name="keyboard_number_row">Number row</string>
+    <string name="keyboard_number_row_disabled">Disabled</string>
+    <string name="keyboard_number_row_password">Show on toolbar when inputting password</string>
+    <string name="keyboard_number_row_always">Always show on keyboard</string>
     <string name="space_long_press_behavior">Space key long press behavior</string>
     <string name="space_behavior_none">None</string>
     <string name="space_behavior_enumerate">Enumerate input methods</string>

@@ -13,37 +13,133 @@ import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.core.InputMethodEntry
 import org.fcitx.fcitx5.android.core.KeyState
 import org.fcitx.fcitx5.android.core.KeyStates
+import org.fcitx.fcitx5.android.core.KeySym
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.data.theme.Theme
 import org.fcitx.fcitx5.android.input.popup.PopupAction
 import splitties.views.imageResource
 
+enum class TextKeyboardNumberRowLayout {
+    English,
+    Chinese;
+
+    companion object {
+        fun from(ime: InputMethodEntry): TextKeyboardNumberRowLayout {
+            return if (ime.languageCode.startsWith("zh")) Chinese else English
+        }
+    }
+}
+
 @SuppressLint("ViewConstructor")
 class TextKeyboard(
     context: Context,
-    theme: Theme
-) : BaseKeyboard(context, theme, Layout) {
+    theme: Theme,
+    numberRowLayout: TextKeyboardNumberRowLayout = TextKeyboardNumberRowLayout.English
+) : BaseKeyboard(context, theme, layout(numberRowLayout), rowHeightWeights()) {
 
     enum class CapsState { None, Once, Lock }
 
     companion object {
         const val Name = "Text"
+        private const val NumberRowHeightWeight = 0.9f
+        const val NumberRowHeightScale = (4f + NumberRowHeightWeight) / 4f
 
-        val Layout: List<List<KeyDef>> = listOf(
-            listOf(
-                AlphabetKey("Q", "1"),
-                AlphabetKey("W", "2"),
-                AlphabetKey("E", "3"),
-                AlphabetKey("R", "4"),
-                AlphabetKey("T", "5"),
-                AlphabetKey("Y", "6"),
-                AlphabetKey("U", "7"),
-                AlphabetKey("I", "8"),
-                AlphabetKey("O", "9"),
-                AlphabetKey("P", "0")
+        private class AlphabetHintKey(
+            character: String,
+            hint: String,
+            action: String = hint
+        ) : KeyDef(
+            KeyDef.Appearance.AltText(
+                displayText = character,
+                altText = hint,
+                textSize = 21f
             ),
+            setOf(
+                KeyDef.Behavior.Press(KeyAction.FcitxKeyAction(character)),
+                KeyDef.Behavior.Swipe(KeyAction.FcitxKeyAction(action))
+            ),
+            arrayOf(
+                KeyDef.Popup.AltPreview(character, hint),
+                KeyDef.Popup.Keyboard(action, includeLabel = true)
+            )
+        )
+
+        private val NumberRowLayout: List<KeyDef> =
+            ('1'..'9').plus('0').map { digit ->
+                val text = digit.toString()
+                KeyDef(
+                    KeyDef.Appearance.Text(
+                        displayText = text,
+                        textSize = 21f
+                    ),
+                    setOf(
+                        KeyDef.Behavior.Press(KeyAction.SymAction(KeySym(digit.code)))
+                    ),
+                    arrayOf(KeyDef.Popup.Preview(text))
+                )
+            }
+
+        private val StandardFirstRow = listOf(
+            AlphabetKey("Q", "1"),
+            AlphabetKey("W", "2"),
+            AlphabetKey("E", "3"),
+            AlphabetKey("R", "4"),
+            AlphabetKey("T", "5"),
+            AlphabetKey("Y", "6"),
+            AlphabetKey("U", "7"),
+            AlphabetKey("I", "8"),
+            AlphabetKey("O", "9"),
+            AlphabetKey("P", "0")
+        )
+
+        private val NumberRowWeights = listOf(NumberRowHeightWeight, 1f, 1f, 1f, 1f)
+
+        private val GboardFirstRow = hintedRow(
+            "QWERTYUIOP",
             listOf(
+                "%" to "%",
+                "\\" to "\\",
+                "|" to "|",
+                "=" to "=",
+                "[" to "[",
+                "]" to "]",
+                "<" to "<",
+                ">" to ">",
+                "{" to "{",
+                "}" to "}"
+            )
+        )
+
+        private val GboardSecondRow = hintedRow(
+            "ASDFGHJKL",
+            listOf(
+                "@" to "@",
+                "#" to "#",
+                "$" to "$",
+                "_" to "_",
+                "&" to "&",
+                "-" to "-",
+                "+" to "+",
+                "(" to "(",
+                ")" to ")"
+            )
+        )
+
+        private val GboardThirdRow = listOf(CapsKey()) + hintedRow(
+            "ZXCVBNM",
+            listOf(
+                "`" to "`",
+                "\"" to "\"",
+                "'" to "'",
+                ":" to ":",
+                ";" to ";",
+                "!" to "!",
+                "?" to "?"
+            )
+        ) + BackspaceKey()
+
+        private val StandardSecondRow = listOf(
                 AlphabetKey("A", "@"),
                 AlphabetKey("S", "*"),
                 AlphabetKey("D", "+"),
@@ -53,8 +149,9 @@ class TextKeyboard(
                 AlphabetKey("J", "#"),
                 AlphabetKey("K", "("),
                 AlphabetKey("L", ")")
-            ),
-            listOf(
+        )
+
+        private val StandardThirdRow = listOf(
                 CapsKey(),
                 AlphabetKey("Z", "'"),
                 AlphabetKey("X", ":"),
@@ -64,16 +161,68 @@ class TextKeyboard(
                 AlphabetKey("N", "~"),
                 AlphabetKey("M", "\\"),
                 BackspaceKey()
-            ),
-            listOf(
+        )
+
+        private val ControlRow = listOf(
                 LayoutSwitchKey("?123", ""),
                 CommaKey(0.1f, KeyDef.Appearance.Variant.Alternative),
                 LanguageKey(),
                 SpaceKey(),
                 SymbolKey(".", 0.1f, KeyDef.Appearance.Variant.Alternative),
                 ReturnKey()
-            )
         )
+
+        private val BaseLayout: List<List<KeyDef>> = listOf(
+            StandardFirstRow,
+            StandardSecondRow,
+            StandardThirdRow,
+            ControlRow
+        )
+
+        private fun hintedRow(chars: String, hints: List<Pair<String, String>>): List<KeyDef> {
+            return chars.toList().zip(hints).map { (char, hint) ->
+                AlphabetHintKey(
+                    char.toString(),
+                    hint.first,
+                    hint.second
+                )
+            }
+        }
+
+        private val EnglishNumberRowLayout: List<List<KeyDef>> = listOf(
+            NumberRowLayout,
+            GboardFirstRow,
+            GboardSecondRow,
+            GboardThirdRow,
+            ControlRow
+        )
+
+        private val ChineseNumberRowLayout: List<List<KeyDef>> = listOf(
+            NumberRowLayout,
+            GboardFirstRow,
+            GboardSecondRow,
+            GboardThirdRow,
+            ControlRow
+        )
+
+        private fun layout(numberRowLayout: TextKeyboardNumberRowLayout): List<List<KeyDef>> {
+            return if (AppPrefs.getInstance().keyboard.keyboardNumberRowMode.getValue() == NumberRowMode.Always) {
+                when (numberRowLayout) {
+                    TextKeyboardNumberRowLayout.English -> EnglishNumberRowLayout
+                    TextKeyboardNumberRowLayout.Chinese -> ChineseNumberRowLayout
+                }
+            } else {
+                BaseLayout
+            }
+        }
+
+        private fun rowHeightWeights(): List<Float> {
+            return if (AppPrefs.getInstance().keyboard.keyboardNumberRowMode.getValue() == NumberRowMode.Always) {
+                NumberRowWeights
+            } else {
+                List(BaseLayout.size) { 1f }
+            }
+        }
     }
 
     val caps: ImageKeyView by lazy { findViewById(R.id.button_caps) }
@@ -228,7 +377,7 @@ class TextKeyboard(
 
     private fun updateAlphabetKeys() {
         textKeys.forEach {
-            if (it.def !is KeyDef.Appearance.AltText) return
+            if (it.def !is KeyDef.Appearance.Text) return
             it.mainText.text = it.def.displayText.let { str ->
                 if (str.length != 1 || !str[0].isLetter()) return@forEach
                 if (keepLettersUppercase) str.uppercase() else transformAlphabet(str)

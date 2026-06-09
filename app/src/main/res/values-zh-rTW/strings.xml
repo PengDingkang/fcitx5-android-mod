@@ -199,6 +199,10 @@
     <string name="notification_permission_message">尚未賦予通知權限，因此無法在耗時較長的操作完成後給您發送通知。</string>
     <string name="notification_permission_title">沒有通知權限</string>
     <string name="toolbar_num_row_on_password">輸入密碼時在工具欄上顯示數字列</string>
+    <string name="keyboard_number_row">數字列</string>
+    <string name="keyboard_number_row_disabled">不顯示</string>
+    <string name="keyboard_number_row_password">僅輸入密碼時在工具欄顯示</string>
+    <string name="keyboard_number_row_always">始終在鍵盤上顯示</string>
     <string name="space_long_press_behavior">空格鍵長按行為</string>
     <string name="space_behavior_none">無</string>
     <string name="space_behavior_enumerate">輪換輸入法</string>

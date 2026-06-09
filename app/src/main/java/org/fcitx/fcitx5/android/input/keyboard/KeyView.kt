@@ -308,6 +308,7 @@ class AltTextKeyView(ctx: Context, theme: Theme, def: KeyDef.Appearance.AltText)
         mainText.updateLayoutParams<ConstraintLayout.LayoutParams> {
             // reset
             topMargin = 0
+            bottomMargin = 0
             bottomToTop = unset
             // set
             topToTop = parentId
@@ -329,8 +330,8 @@ class AltTextKeyView(ctx: Context, theme: Theme, def: KeyDef.Appearance.AltText)
             // reset
             bottomToBottom = unset
             // set
-            topToTop = parentId; topMargin = vMargin
-            bottomToTop = altText.existingOrNewId
+            topToTop = parentId; topMargin = vMargin + dp(2)
+            bottomToTop = altText.existingOrNewId; bottomMargin = dp(4)
         }
         altText.visibility = View.VISIBLE
         altText.updateLayoutParams<ConstraintLayout.LayoutParams> {
@@ -348,6 +349,7 @@ class AltTextKeyView(ctx: Context, theme: Theme, def: KeyDef.Appearance.AltText)
         mainText.updateLayoutParams<ConstraintLayout.LayoutParams> {
             // reset
             topMargin = 0
+            bottomMargin = 0
             bottomToTop = unset
             // set
             topToTop = parentId

@@ -21,6 +21,7 @@ import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.data.theme.Theme
 import org.fcitx.fcitx5.android.data.theme.ThemeManager
 import org.fcitx.fcitx5.android.data.theme.ThemePrefs.NavbarBackground
+import org.fcitx.fcitx5.android.input.keyboard.NumberRowMode
 import org.fcitx.fcitx5.android.input.keyboard.TextKeyboard
 import org.fcitx.fcitx5.android.utils.navbarFrameHeight
 import splitties.dimensions.dp
@@ -39,6 +40,7 @@ import splitties.views.dsl.core.imageView
 import splitties.views.dsl.core.lParams
 import splitties.views.dsl.core.view
 import splitties.views.imageDrawable
+import kotlin.math.roundToInt
 
 class KeyboardPreviewUi(override val ctx: Context, val theme: Theme) : Ui {
 
@@ -59,6 +61,7 @@ class KeyboardPreviewUi(override val ctx: Context, val theme: Theme) : Ui {
     private val keyboardRightPaddingLandscape = keyboardPrefs.keyboardRightPaddingLandscape
     private val keyboardBottomPadding by keyboardPrefs.keyboardBottomPadding
     private val keyboardBottomPaddingLandscape by keyboardPrefs.keyboardBottomPaddingLandscape
+    private val keyboardNumberRowMode by keyboardPrefs.keyboardNumberRowMode
 
     private fun ManagedPreference.PInt.getValueOrFallback(fallback: ManagedPreference.PInt): Int {
         return if (sharedPreferences.contains(key) || !sharedPreferences.contains(fallback.key)) {
@@ -157,7 +160,12 @@ class KeyboardPreviewUi(override val ctx: Context, val theme: Theme) : Ui {
             Configuration.ORIENTATION_LANDSCAPE -> keyboardHeightPercentLandscape
             else -> keyboardHeightPercent
         }
-        return w to (h * hPercent / 100)
+        val baseHeight = h * hPercent / 100
+        return w to if (keyboardNumberRowMode == NumberRowMode.Always) {
+            (baseHeight * TextKeyboard.NumberRowHeightScale).roundToInt()
+        } else {
+            baseHeight
+        }
     }
 
     init {

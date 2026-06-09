@@ -17,6 +17,7 @@ import org.fcitx.fcitx5.android.input.candidates.floating.FloatingCandidatesMode
 import org.fcitx.fcitx5.android.input.candidates.floating.FloatingCandidatesOrientation
 import org.fcitx.fcitx5.android.input.candidates.horizontal.HorizontalCandidateMode
 import org.fcitx.fcitx5.android.input.keyboard.LangSwitchBehavior
+import org.fcitx.fcitx5.android.input.keyboard.NumberRowMode
 import org.fcitx.fcitx5.android.input.keyboard.SpaceLongPressBehavior
 import org.fcitx.fcitx5.android.input.keyboard.SwipeSymbolDirection
 import org.fcitx.fcitx5.android.input.picker.PickerWindow
@@ -133,8 +134,37 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
         val expandToolbarByDefault =
             switch(R.string.expand_toolbar_by_default, "expand_toolbar_by_default", false)
         val inlineSuggestions = switch(R.string.inline_suggestions, "inline_suggestions", true)
-        val toolbarNumRowOnPassword =
-            switch(R.string.toolbar_num_row_on_password, "toolbar_num_row_on_password", true)
+
+        init {
+            val oldBooleanKey = "toolbar_num_row_on_password"
+            val oldModeKey = "toolbar_number_row_mode"
+            val newKey = "keyboard_number_row_mode"
+            if (!sharedPreferences.contains(newKey)) {
+                val mode = when {
+                    sharedPreferences.contains(oldModeKey) -> runCatching {
+                        val value = sharedPreferences.getString(oldModeKey, NumberRowMode.Password.name)!!
+                        NumberRowMode.valueOf(value)
+                    }.getOrDefault(NumberRowMode.Password)
+                    sharedPreferences.contains(oldBooleanKey) -> if (sharedPreferences.getBoolean(oldBooleanKey, true)) {
+                        NumberRowMode.Password
+                    } else {
+                        NumberRowMode.Disabled
+                    }
+                    else -> null
+                }
+                if (mode != null) {
+                    sharedPreferences.edit {
+                        putString(newKey, mode.name)
+                    }
+                }
+            }
+        }
+
+        val keyboardNumberRowMode = enumList(
+            R.string.keyboard_number_row,
+            "keyboard_number_row_mode",
+            NumberRowMode.Password
+        )
         val popupOnKeyPress = switch(R.string.popup_on_key_press, "popup_on_key_press", true)
         val keepLettersUppercase = switch(
             R.string.keep_keyboard_letters_uppercase,
