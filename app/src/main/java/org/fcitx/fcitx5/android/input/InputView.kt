@@ -22,6 +22,7 @@ import org.fcitx.fcitx5.android.core.FcitxEvent
 import org.fcitx.fcitx5.android.daemon.FcitxConnection
 import org.fcitx.fcitx5.android.daemon.launchOnReady
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
+import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreferenceProvider
 import org.fcitx.fcitx5.android.data.theme.Theme
 import org.fcitx.fcitx5.android.data.theme.ThemeManager
@@ -136,6 +137,10 @@ class InputView(
     private val keyboardHeightPercentLandscape = keyboardPrefs.keyboardHeightPercentLandscape
     private val keyboardSidePadding = keyboardPrefs.keyboardSidePadding
     private val keyboardSidePaddingLandscape = keyboardPrefs.keyboardSidePaddingLandscape
+    private val keyboardLeftPadding = keyboardPrefs.keyboardLeftPadding
+    private val keyboardLeftPaddingLandscape = keyboardPrefs.keyboardLeftPaddingLandscape
+    private val keyboardRightPadding = keyboardPrefs.keyboardRightPadding
+    private val keyboardRightPaddingLandscape = keyboardPrefs.keyboardRightPaddingLandscape
     private val keyboardBottomPadding = keyboardPrefs.keyboardBottomPadding
     private val keyboardBottomPaddingLandscape = keyboardPrefs.keyboardBottomPaddingLandscape
 
@@ -144,6 +149,10 @@ class InputView(
         keyboardHeightPercentLandscape,
         keyboardSidePadding,
         keyboardSidePaddingLandscape,
+        keyboardLeftPadding,
+        keyboardLeftPaddingLandscape,
+        keyboardRightPadding,
+        keyboardRightPaddingLandscape,
         keyboardBottomPadding,
         keyboardBottomPaddingLandscape,
     )
@@ -157,12 +166,31 @@ class InputView(
             return resources.displayMetrics.heightPixels * percent / 100
         }
 
-    private val keyboardSidePaddingPx: Int
+    private fun ManagedPreference.PInt.getValueOrFallback(fallback: ManagedPreference.PInt): Int {
+        return if (sharedPreferences.contains(key) || !sharedPreferences.contains(fallback.key)) {
+            getValue()
+        } else {
+            fallback.getValue()
+        }
+    }
+
+    private val keyboardLeftPaddingPx: Int
         get() {
             val value = when (resources.configuration.orientation) {
-                Configuration.ORIENTATION_LANDSCAPE -> keyboardSidePaddingLandscape
-                else -> keyboardSidePadding
-            }.getValue()
+                Configuration.ORIENTATION_LANDSCAPE ->
+                    keyboardLeftPaddingLandscape.getValueOrFallback(keyboardSidePaddingLandscape)
+                else -> keyboardLeftPadding.getValueOrFallback(keyboardSidePadding)
+            }
+            return dp(value)
+        }
+
+    private val keyboardRightPaddingPx: Int
+        get() {
+            val value = when (resources.configuration.orientation) {
+                Configuration.ORIENTATION_LANDSCAPE ->
+                    keyboardRightPaddingLandscape.getValueOrFallback(keyboardSidePaddingLandscape)
+                else -> keyboardRightPadding.getValueOrFallback(keyboardSidePadding)
+            }
             return dp(value)
         }
 
@@ -267,8 +295,9 @@ class InputView(
         bottomPaddingSpace.updateLayoutParams {
             height = keyboardBottomPaddingPx
         }
-        val sidePadding = keyboardSidePaddingPx
-        if (sidePadding == 0) {
+        val leftPadding = keyboardLeftPaddingPx
+        val rightPadding = keyboardRightPaddingPx
+        if (leftPadding == 0 && rightPadding == 0) {
             // hide side padding space views when unnecessary
             leftPaddingSpace.visibility = GONE
             rightPaddingSpace.visibility = GONE
@@ -279,13 +308,13 @@ class InputView(
                 endOfParent()
             }
         } else {
-            leftPaddingSpace.visibility = VISIBLE
-            rightPaddingSpace.visibility = VISIBLE
+            leftPaddingSpace.visibility = if (leftPadding == 0) GONE else VISIBLE
+            rightPaddingSpace.visibility = if (rightPadding == 0) GONE else VISIBLE
             leftPaddingSpace.updateLayoutParams {
-                width = sidePadding
+                width = leftPadding
             }
             rightPaddingSpace.updateLayoutParams {
-                width = sidePadding
+                width = rightPadding
             }
             windowManager.view.updateLayoutParams<LayoutParams> {
                 startToStart = unset
@@ -294,8 +323,8 @@ class InputView(
                 endToStartOf(rightPaddingSpace)
             }
         }
-        preedit.ui.root.setPadding(sidePadding, 0, sidePadding, 0)
-        kawaiiBar.view.setPadding(sidePadding, 0, sidePadding, 0)
+        preedit.ui.root.setPadding(leftPadding, 0, rightPadding, 0)
+        kawaiiBar.view.setPadding(leftPadding, 0, rightPadding, 0)
     }
 
     override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {

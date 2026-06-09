@@ -199,24 +199,68 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
             keyboardHeightPercentLandscape = secondary
         }
 
-        val keyboardSidePadding: ManagedPreference.PInt
-        val keyboardSidePaddingLandscape: ManagedPreference.PInt
+        val keyboardSidePadding =
+            ManagedPreference.PInt(sharedPreferences, "keyboard_side_padding", 0).also {
+                it.register()
+            }
+        val keyboardSidePaddingLandscape =
+            ManagedPreference.PInt(sharedPreferences, "keyboard_side_padding_landscape", 0).also {
+                it.register()
+            }
+
+        private fun migrateSidePadding(oldKey: String, newKey: String) {
+            if (sharedPreferences.contains(oldKey) && !sharedPreferences.contains(newKey)) {
+                sharedPreferences.edit {
+                    putInt(newKey, sharedPreferences.getInt(oldKey, 0))
+                }
+            }
+        }
+
+        init {
+            migrateSidePadding("keyboard_side_padding", "keyboard_left_padding")
+            migrateSidePadding("keyboard_side_padding_landscape", "keyboard_left_padding_landscape")
+            migrateSidePadding("keyboard_side_padding", "keyboard_right_padding")
+            migrateSidePadding("keyboard_side_padding_landscape", "keyboard_right_padding_landscape")
+        }
+
+        val keyboardLeftPadding: ManagedPreference.PInt
+        val keyboardLeftPaddingLandscape: ManagedPreference.PInt
 
         init {
             val (primary, secondary) = twinInt(
-                R.string.keyboard_side_padding,
+                R.string.keyboard_left_padding,
                 R.string.portrait,
-                "keyboard_side_padding",
+                "keyboard_left_padding",
                 0,
                 R.string.landscape,
-                "keyboard_side_padding_landscape",
+                "keyboard_left_padding_landscape",
                 0,
                 0,
                 300,
                 "dp"
             )
-            keyboardSidePadding = primary
-            keyboardSidePaddingLandscape = secondary
+            keyboardLeftPadding = primary
+            keyboardLeftPaddingLandscape = secondary
+        }
+
+        val keyboardRightPadding: ManagedPreference.PInt
+        val keyboardRightPaddingLandscape: ManagedPreference.PInt
+
+        init {
+            val (primary, secondary) = twinInt(
+                R.string.keyboard_right_padding,
+                R.string.portrait,
+                "keyboard_right_padding",
+                0,
+                R.string.landscape,
+                "keyboard_right_padding_landscape",
+                0,
+                0,
+                300,
+                "dp"
+            )
+            keyboardRightPadding = primary
+            keyboardRightPaddingLandscape = secondary
         }
 
         val keyboardBottomPadding: ManagedPreference.PInt

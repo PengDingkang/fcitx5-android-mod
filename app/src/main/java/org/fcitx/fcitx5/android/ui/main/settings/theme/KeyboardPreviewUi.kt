@@ -29,11 +29,12 @@ import splitties.views.dsl.constraintlayout.below
 import splitties.views.dsl.constraintlayout.centerHorizontally
 import splitties.views.dsl.constraintlayout.centerInParent
 import splitties.views.dsl.constraintlayout.constraintLayout
+import splitties.views.dsl.constraintlayout.endOfParent
 import splitties.views.dsl.constraintlayout.lParams
 import splitties.views.dsl.constraintlayout.matchConstraints
+import splitties.views.dsl.constraintlayout.startOfParent
 import splitties.views.dsl.core.Ui
 import splitties.views.dsl.core.add
-import splitties.views.dsl.core.horizontalMargin
 import splitties.views.dsl.core.imageView
 import splitties.views.dsl.core.lParams
 import splitties.views.dsl.core.view
@@ -50,16 +51,39 @@ class KeyboardPreviewUi(override val ctx: Context, val theme: Theme) : Ui {
     private val keyboardPrefs = AppPrefs.getInstance().keyboard
     private val keyboardHeightPercent by keyboardPrefs.keyboardHeightPercent
     private val keyboardHeightPercentLandscape by keyboardPrefs.keyboardHeightPercentLandscape
-    private val keyboardSidePadding by keyboardPrefs.keyboardSidePadding
-    private val keyboardSidePaddingLandscape by keyboardPrefs.keyboardSidePaddingLandscape
+    private val keyboardSidePadding = keyboardPrefs.keyboardSidePadding
+    private val keyboardSidePaddingLandscape = keyboardPrefs.keyboardSidePaddingLandscape
+    private val keyboardLeftPadding = keyboardPrefs.keyboardLeftPadding
+    private val keyboardLeftPaddingLandscape = keyboardPrefs.keyboardLeftPaddingLandscape
+    private val keyboardRightPadding = keyboardPrefs.keyboardRightPadding
+    private val keyboardRightPaddingLandscape = keyboardPrefs.keyboardRightPaddingLandscape
     private val keyboardBottomPadding by keyboardPrefs.keyboardBottomPadding
     private val keyboardBottomPaddingLandscape by keyboardPrefs.keyboardBottomPaddingLandscape
 
-    private val keyboardSidePaddingPx: Int
+    private fun ManagedPreference.PInt.getValueOrFallback(fallback: ManagedPreference.PInt): Int {
+        return if (sharedPreferences.contains(key) || !sharedPreferences.contains(fallback.key)) {
+            getValue()
+        } else {
+            fallback.getValue()
+        }
+    }
+
+    private val keyboardLeftPaddingPx: Int
         get() {
             val value = when (ctx.resources.configuration.orientation) {
-                Configuration.ORIENTATION_LANDSCAPE -> keyboardSidePaddingLandscape
-                else -> keyboardSidePadding
+                Configuration.ORIENTATION_LANDSCAPE ->
+                    keyboardLeftPaddingLandscape.getValueOrFallback(keyboardSidePaddingLandscape)
+                else -> keyboardLeftPadding.getValueOrFallback(keyboardSidePadding)
+            }
+            return ctx.dp(value)
+        }
+
+    private val keyboardRightPaddingPx: Int
+        get() {
+            val value = when (ctx.resources.configuration.orientation) {
+                Configuration.ORIENTATION_LANDSCAPE ->
+                    keyboardRightPaddingLandscape.getValueOrFallback(keyboardSidePaddingLandscape)
+                else -> keyboardRightPadding.getValueOrFallback(keyboardSidePadding)
             }
             return ctx.dp(value)
         }
@@ -149,7 +173,8 @@ class KeyboardPreviewUi(override val ctx: Context, val theme: Theme) : Ui {
         keyboardHeight = h
         fakeKeyboardWindow.updateLayoutParams<ConstraintLayout.LayoutParams> {
             height = keyboardHeight
-            horizontalMargin = keyboardSidePaddingPx
+            marginStart = keyboardLeftPaddingPx
+            marginEnd = keyboardRightPaddingPx
         }
         intrinsicWidth = keyboardWidth
         // KawaiiBar height + WindowManager view height
@@ -191,7 +216,8 @@ class KeyboardPreviewUi(override val ctx: Context, val theme: Theme) : Ui {
         fakeInputView.apply {
             add(fakeKeyboardWindow, lParams(matchConstraints, keyboardHeight) {
                 below(fakeKawaiiBar)
-                centerHorizontally(keyboardSidePaddingPx)
+                startOfParent(keyboardLeftPaddingPx)
+                endOfParent(keyboardRightPaddingPx)
             })
         }
     }
