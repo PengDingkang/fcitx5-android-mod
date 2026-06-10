@@ -40,14 +40,25 @@ class AndroidAppConventionPlugin : AndroidBaseConventionPlugin() {
                 versionName = target.buildVersionName
             }
             buildTypes {
+                val releaseSigningConfig = signingConfigs.fromProjectEnv(target)
                 release {
                     isMinifyEnabled = true
                     isShrinkResources = true
-                    signingConfig = signingConfigs.fromProjectEnv(target)
+                    signingConfig = releaseSigningConfig
                     proguardFile(getDefaultProguardFile("proguard-android-optimize.txt"))
                 }
                 debug {
                     applicationIdSuffix = ".debug"
+                }
+                create("dev") {
+                    initWith(getByName("debug"))
+                    applicationIdSuffix = null
+                    isDebuggable = true
+                    isMinifyEnabled = false
+                    isShrinkResources = false
+                    signingConfig = releaseSigningConfig
+                    matchingFallbacks += listOf("debug", "release")
+                    resValue("string", "app_name", "@string/app_name_debug")
                 }
                 all {
                     // remove META-INF/version-control-info.textproto

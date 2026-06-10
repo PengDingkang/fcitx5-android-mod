@@ -22,19 +22,15 @@ class AndroidPluginAppConventionPlugin : Plugin<Project> {
             buildTypes {
                 release {
                     buildConfigField("String", "MAIN_APPLICATION_ID", "\"org.fcitx.fcitx5.android\"")
-                    addManifestPlaceholders(
-                        mapOf(
-                            "mainApplicationId" to "org.fcitx.fcitx5.android",
-                        )
-                    )
+                    manifestPlaceholders["mainApplicationId"] = "org.fcitx.fcitx5.android"
                 }
                 debug {
                     buildConfigField("String", "MAIN_APPLICATION_ID", "\"org.fcitx.fcitx5.android.debug\"")
-                    addManifestPlaceholders(
-                        mapOf(
-                            "mainApplicationId" to "org.fcitx.fcitx5.android.debug",
-                        )
-                    )
+                    manifestPlaceholders["mainApplicationId"] = "org.fcitx.fcitx5.android.debug"
+                }
+                getByName("dev") {
+                    buildConfigField("String", "MAIN_APPLICATION_ID", "\"org.fcitx.fcitx5.android\"")
+                    manifestPlaceholders["mainApplicationId"] = "org.fcitx.fcitx5.android"
                 }
             }
         }
