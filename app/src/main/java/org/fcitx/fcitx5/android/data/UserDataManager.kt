@@ -27,6 +27,9 @@ import java.util.zip.ZipOutputStream
 object UserDataManager {
 
     private val json = Json { prettyPrint = true }
+    private const val ReleaseApplicationId = "org.fcitx.fcitx5.android"
+    private const val DebugApplicationId = "$ReleaseApplicationId.debug"
+    private val migratableApplicationIds = setOf(ReleaseApplicationId, DebugApplicationId)
 
     @Serializable
     data class Metadata(
@@ -90,6 +93,23 @@ object UserDataManager {
         }
     }
 
+    private fun defaultSharedPrefsFileName(packageName: String) = "${packageName}_preferences.xml"
+
+    private fun isCompatiblePackageName(packageName: String): Boolean {
+        if (packageName == BuildConfig.APPLICATION_ID) return true
+        return packageName in migratableApplicationIds &&
+            BuildConfig.APPLICATION_ID in migratableApplicationIds
+    }
+
+    private fun migrateDefaultSharedPreferencesName(sharedPrefsSourceDir: File, sourcePackageName: String) {
+        if (sourcePackageName == BuildConfig.APPLICATION_ID) return
+        val sourceFile = sharedPrefsSourceDir.resolve(defaultSharedPrefsFileName(sourcePackageName))
+        if (!sourceFile.isFile) return
+        val targetFile = sharedPrefsSourceDir.resolve(defaultSharedPrefsFileName(BuildConfig.APPLICATION_ID))
+        sourceFile.copyTo(targetFile, overwrite = true)
+        sourceFile.delete()
+    }
+
     fun import(src: InputStream) = runCatching {
         ZipInputStream(src).use { zipStream ->
             withTempDir { tempDir ->
@@ -97,8 +117,9 @@ object UserDataManager {
                 val metadataFile = extracted.find { it.name == "metadata.json" }
                     ?: errorRuntime(R.string.exception_user_data_metadata)
                 val metadata = json.decodeFromString<Metadata>(metadataFile.readText())
-                if (metadata.packageName != BuildConfig.APPLICATION_ID)
+                if (!isCompatiblePackageName(metadata.packageName))
                     errorRuntime(R.string.exception_user_data_package_name_mismatch)
+                migrateDefaultSharedPreferencesName(File(tempDir, "shared_prefs"), metadata.packageName)
                 copyDir(File(tempDir, "shared_prefs"), sharedPrefsDir)
                 copyDir(File(tempDir, "databases"), dataBasesDir)
                 copyDir(File(tempDir, "external"), externalDir)
