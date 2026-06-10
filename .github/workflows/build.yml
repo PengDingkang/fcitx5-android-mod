@@ -1,0 +1,99 @@
+name: Build
+
+on:
+  push:
+    branches: [mod]
+  pull_request:
+    branches: [mod]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  BUILD_ABI: arm64-v8a
+
+jobs:
+  build:
+    name: Build APKs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Fetch source code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android environment
+        uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platform-tools
+            platforms;android-36
+            build-tools;36.1.0
+            ndk;28.0.13004108
+            cmake;3.31.6
+
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y extra-cmake-modules gettext
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Build debug APKs
+        run: ./gradlew :app:assembleDebug :plugin:anthy:assembleDebug
+
+      - name: Upload debug APKs
+        uses: actions/upload-artifact@v6
+        with:
+          name: fcitx5-android-arm64-debug
+          if-no-files-found: error
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            plugin/anthy/build/outputs/apk/debug/*.apk
+
+      - name: Validate release signing secrets
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          SIGN_KEY_BASE64: ${{ secrets.SIGN_KEY_BASE64 }}
+          SIGN_KEY_PWD: ${{ secrets.SIGN_KEY_PWD }}
+          SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS }}
+          SIGN_KEY_KEY_PWD: ${{ secrets.SIGN_KEY_KEY_PWD }}
+        run: |
+          test -n "$SIGN_KEY_BASE64" || { echo "::error::Missing SIGN_KEY_BASE64"; exit 1; }
+          test -n "$SIGN_KEY_PWD" || { echo "::error::Missing SIGN_KEY_PWD"; exit 1; }
+          test -n "$SIGN_KEY_ALIAS" || { echo "::error::Missing SIGN_KEY_ALIAS"; exit 1; }
+          test -n "$SIGN_KEY_KEY_PWD" || { echo "::error::Missing SIGN_KEY_KEY_PWD"; exit 1; }
+
+      - name: Build release APKs
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          SIGN_KEY_BASE64: ${{ secrets.SIGN_KEY_BASE64 }}
+          SIGN_KEY_PWD: ${{ secrets.SIGN_KEY_PWD }}
+          SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS }}
+          SIGN_KEY_KEY_PWD: ${{ secrets.SIGN_KEY_KEY_PWD }}
+        run: ./gradlew :app:assembleRelease :plugin:anthy:assembleRelease
+
+      - name: Upload release APKs
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: fcitx5-android-arm64-release
+          if-no-files-found: error
+          path: |
+            app/build/outputs/apk/release/*.apk
+            plugin/anthy/build/outputs/apk/release/*.apk
