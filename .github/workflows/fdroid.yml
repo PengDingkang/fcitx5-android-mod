@@ -2,6 +2,7 @@ name: F-Droid
 
 on:
   pull_request:
+    branches: [mod]
     paths:
       - '.github/workflows/fdroid.yml'
       - 'app/org.fcitx.fcitx5.android.yml'

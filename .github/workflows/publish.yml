@@ -2,7 +2,7 @@ name: Publish
 
 on:
   push:
-    branches: [master]
+    branches: [mod]
     paths:
       - 'build-logic/**'
       - 'lib/**'

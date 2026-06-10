@@ -2,8 +2,9 @@ name: Nix
 
 on:
   pull_request:
+    branches: [mod]
   push:
-    branches: [master]
+    branches: [mod]
 
 jobs:
   develop:
