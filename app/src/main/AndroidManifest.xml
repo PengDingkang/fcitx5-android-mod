@@ -12,6 +12,7 @@
         tools:node="remove" />
 
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- remove intent queries merged from library manifest (namely Android-Image-Cropper) -->

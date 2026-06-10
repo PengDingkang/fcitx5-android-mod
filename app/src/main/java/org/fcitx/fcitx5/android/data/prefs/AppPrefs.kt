@@ -22,6 +22,9 @@ import org.fcitx.fcitx5.android.input.keyboard.SpaceLongPressBehavior
 import org.fcitx.fcitx5.android.input.keyboard.SwipeSymbolDirection
 import org.fcitx.fcitx5.android.input.picker.PickerWindow
 import org.fcitx.fcitx5.android.input.popup.EmojiModifier
+import org.fcitx.fcitx5.android.input.translation.DeepSeekTranslationLanguage
+import org.fcitx.fcitx5.android.input.translation.DeepSeekTranslationModel
+import org.fcitx.fcitx5.android.input.translation.TranslationPreset
 import org.fcitx.fcitx5.android.utils.DeviceUtil
 import org.fcitx.fcitx5.android.utils.appContext
 import org.fcitx.fcitx5.android.utils.vibrator
@@ -439,6 +442,71 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
         )
     }
 
+    inner class Translation : ManagedPreferenceCategory(R.string.ai_translation, sharedPreferences) {
+        val apiBaseUrl = string(
+            R.string.translation_api_base_url,
+            "translation_api_base_url",
+            "https://api.deepseek.com"
+        )
+        private val modelCodec = object : ManagedPreference.StringLikeCodec<DeepSeekTranslationModel> {
+            override fun encode(x: DeepSeekTranslationModel) = x.apiName
+
+            override fun decode(raw: String): DeepSeekTranslationModel? {
+                return DeepSeekTranslationModel.entries.firstOrNull {
+                    raw == it.apiName || raw == it.name
+                }
+            }
+        }
+        private val languageCodec = object : ManagedPreference.StringLikeCodec<DeepSeekTranslationLanguage> {
+            override fun encode(x: DeepSeekTranslationLanguage) = x.promptName
+
+            override fun decode(raw: String): DeepSeekTranslationLanguage? {
+                return DeepSeekTranslationLanguage.entries.firstOrNull {
+                    raw == it.promptName || raw == it.name
+                }
+            }
+        }
+
+        val model = list(
+            R.string.translation_model,
+            "translation_model",
+            DeepSeekTranslationModel.Flash,
+            modelCodec,
+            DeepSeekTranslationModel.entries.toList(),
+            DeepSeekTranslationModel.entries.map { it.stringRes }
+        )
+        val enableThinking = switch(
+            R.string.translation_enable_thinking,
+            "translation_enable_thinking",
+            false,
+            R.string.translation_enable_thinking_summary
+        )
+        val targetLanguage = list(
+            R.string.translation_target_language,
+            "translation_target_language",
+            DeepSeekTranslationLanguage.English,
+            languageCodec,
+            DeepSeekTranslationLanguage.entries.toList(),
+            DeepSeekTranslationLanguage.entries.map { it.stringRes }
+        )
+        val preset = enumList(
+            R.string.translation_preset,
+            "translation_preset",
+            TranslationPreset.Balanced
+        )
+        val customPresetInstruction = string(
+            R.string.translation_custom_preset_instruction,
+            "translation_custom_preset_instruction",
+            "",
+            R.string.translation_custom_preset_instruction_summary
+        ) { preset.getValue() == TranslationPreset.Custom }
+        val keepPanelOpenAfterSend = switch(
+            R.string.translation_keep_panel_open_after_send,
+            "translation_keep_panel_open_after_send",
+            true
+        )
+    }
+
     private val providers = mutableListOf<ManagedPreferenceProvider>()
 
     fun <T : ManagedPreferenceProvider> registerProvider(
@@ -458,6 +526,7 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
     val candidates = Candidates().register()
     val clipboard = Clipboard().register()
     val symbols = Symbols().register()
+    val translation = Translation().register()
     val advanced = Advanced().register()
 
     @Keep
@@ -486,7 +555,8 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
             listOf(
                 keyboard,
                 candidates,
-                clipboard
+                clipboard,
+                translation
             ).forEach { category ->
                 category.managedPreferences.forEach {
                     it.value.putValueTo(this@edit)

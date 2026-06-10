@@ -5,6 +5,7 @@
 package org.fcitx.fcitx5.android.data.prefs
 
 import android.content.Context
+import android.text.InputType
 import androidx.annotation.StringRes
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
@@ -123,6 +124,43 @@ abstract class ManagedPreferenceUi<T : Preference>(
             min = this@EditTextInt.min
             max = this@EditTextInt.max
             unit = this@EditTextInt.unit
+        }
+    }
+
+    class EditTextString(
+        @StringRes
+        val title: Int,
+        key: String,
+        val defaultValue: String,
+        @StringRes
+        val summary: Int? = null,
+        val secret: Boolean = false,
+        enableUiOn: (() -> Boolean)? = null
+    ) : ManagedPreferenceUi<EditTextPreference>(key, enableUiOn) {
+        override fun createUi(context: Context) = EditTextPreference(context).apply {
+            key = this@EditTextString.key
+            isIconSpaceReserved = false
+            isSingleLineTitle = false
+            setDefaultValue(this@EditTextString.defaultValue)
+            setTitle(this@EditTextString.title)
+            setDialogTitle(this@EditTextString.title)
+            this@EditTextString.summary?.let { setSummary(it) }
+            if (secret) {
+                summaryProvider = Preference.SummaryProvider<EditTextPreference> {
+                    if (it.text.isNullOrBlank()) {
+                        context.getString(R.string._not_set_)
+                    } else {
+                        context.getString(R.string.configured)
+                    }
+                }
+                setOnBindEditTextListener {
+                    it.inputType = InputType.TYPE_CLASS_TEXT or
+                            InputType.TYPE_TEXT_VARIATION_PASSWORD or
+                            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                }
+            } else {
+                summaryProvider = EditTextPreference.SimpleSummaryProvider.getInstance()
+            }
         }
     }
 

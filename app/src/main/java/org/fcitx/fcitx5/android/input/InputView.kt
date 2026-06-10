@@ -41,6 +41,7 @@ import org.fcitx.fcitx5.android.input.picker.emoticonPicker
 import org.fcitx.fcitx5.android.input.picker.symbolPicker
 import org.fcitx.fcitx5.android.input.popup.PopupComponent
 import org.fcitx.fcitx5.android.input.preedit.PreeditComponent
+import org.fcitx.fcitx5.android.input.translation.TranslationComponent
 import org.fcitx.fcitx5.android.input.wm.InputWindowManager
 import org.fcitx.fcitx5.android.utils.unset
 import org.mechdancer.dependency.DynamicScope
@@ -107,6 +108,7 @@ class InputView(
     private val commonKeyActionListener = CommonKeyActionListener()
     private val windowManager = InputWindowManager()
     private val kawaiiBar = KawaiiBarComponent()
+    private val translation = TranslationComponent()
     private val horizontalCandidate = HorizontalCandidateComponent()
     private val keyboardWindow = KeyboardWindow()
     private val symbolPicker = symbolPicker()
@@ -127,6 +129,7 @@ class InputView(
         scope += preedit
         scope += commonKeyActionListener
         scope += windowManager
+        scope += translation
         scope += kawaiiBar
         scope += horizontalCandidate
         broadcaster.onScopeSetupFinished(scope)
@@ -221,6 +224,8 @@ class InputView(
     }
 
     val keyboardView: View
+    val visibleInputView: View
+        get() = if (translation.isActive) translation.view else keyboardView
 
     init {
         // MUST call before any operation
@@ -283,6 +288,10 @@ class InputView(
         updateKeyboardSize()
 
         add(preedit.ui.root, lParams(matchParent, wrapContent) {
+            above(translation.view)
+            centerHorizontally()
+        })
+        add(translation.view, lParams(matchParent, wrapContent) {
             above(keyboardView)
             centerHorizontally()
         })
@@ -334,6 +343,7 @@ class InputView(
             }
         }
         preedit.ui.root.setPadding(leftPadding, 0, rightPadding, 0)
+        translation.setSidePadding(leftPadding, rightPadding)
         kawaiiBar.view.setPadding(leftPadding, 0, rightPadding, 0)
     }
 
@@ -352,6 +362,7 @@ class InputView(
         returnKeyDrawable.updateDrawableOnEditorInfo(info)
         if (focusChangeResetKeyboard || !restarting) {
             windowManager.attachWindow(KeyboardWindow)
+            translation.hide()
         }
     }
 
@@ -403,6 +414,7 @@ class InputView(
 
     override fun onDetachedFromWindow() {
         keyboardPrefs.unregisterOnChangeListener(onKeyboardSizeChangeListener)
+        translation.onDetachedFromInputView()
         // clear DynamicScope, implies that InputView should not be attached again after detached.
         scope.clear()
         super.onDetachedFromWindow()

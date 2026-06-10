@@ -64,6 +64,7 @@ import org.fcitx.fcitx5.android.input.keyboard.KeyboardWindow
 import org.fcitx.fcitx5.android.input.keyboard.NumberRowMode
 import org.fcitx.fcitx5.android.input.popup.PopupComponent
 import org.fcitx.fcitx5.android.input.status.StatusAreaWindow
+import org.fcitx.fcitx5.android.input.translation.TranslationComponent
 import org.fcitx.fcitx5.android.input.wm.InputWindow
 import org.fcitx.fcitx5.android.input.wm.InputWindowManager
 import org.fcitx.fcitx5.android.utils.AppUtil
@@ -96,6 +97,7 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
     private val horizontalCandidate: HorizontalCandidateComponent by manager.must()
     private val commonKeyActionListener: CommonKeyActionListener by manager.must()
     private val popup: PopupComponent by manager.must()
+    private val translation: TranslationComponent by manager.must()
 
     private val prefs = AppPrefs.getInstance()
 
@@ -313,6 +315,9 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
                 }
                 clipboardButton.setOnClickListener {
                     windowManager.attachWindow(ClipboardWindow())
+                }
+                translateButton.setOnClickListener {
+                    translation.toggle()
                 }
                 moreButton.setOnClickListener {
                     windowManager.attachWindow(StatusAreaWindow())

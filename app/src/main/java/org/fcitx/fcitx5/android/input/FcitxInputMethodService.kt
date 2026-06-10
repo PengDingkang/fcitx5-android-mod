@@ -81,9 +81,19 @@ import kotlin.math.max
 
 class FcitxInputMethodService : LifecycleInputMethodService() {
 
+    interface InputTextConsumer {
+        fun commitText(text: String, cursor: Int = -1)
+        fun deleteBackspace()
+        fun deleteSurrounding(before: Int, after: Int)
+        fun performEnter()
+        fun moveCursor(offset: Int)
+    }
+
     private lateinit var fcitx: FcitxConnection
 
     private var jobs = Channel<Job>(capacity = Channel.UNLIMITED)
+
+    private var inputTextConsumer: InputTextConsumer? = null
 
     private val cachedKeyEvents = LruCache<Int, KeyEvent>(78)
     private var cachedKeyEventIndex = 0
@@ -201,6 +211,14 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         return job
     }
 
+    fun setInputTextConsumer(consumer: InputTextConsumer?) {
+        inputTextConsumer = consumer
+        if (consumer != null) {
+            currentInputConnection?.finishComposingText()
+            resetComposingState()
+        }
+    }
+
     override fun onCreate() {
         fcitx = FcitxDaemon.connect(javaClass.name)
         lifecycleScope.launch {
@@ -231,11 +249,26 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     private fun handleFcitxEvent(event: FcitxEvent<*>) {
         when (event) {
             is FcitxEvent.CommitStringEvent -> {
-                commitText(event.data.text, event.data.cursor)
+                inputTextConsumer?.commitText(event.data.text, event.data.cursor)
+                    ?: commitText(event.data.text, event.data.cursor)
             }
             is FcitxEvent.KeyEvent -> event.data.let event@{
                 if (it.states.virtual) {
                     // KeyEvent from virtual keyboard
+                    inputTextConsumer?.let { consumer ->
+                        when (it.sym.sym) {
+                            FcitxKeyMapping.FcitxKey_BackSpace -> consumer.deleteBackspace()
+                            FcitxKeyMapping.FcitxKey_Return -> consumer.performEnter()
+                            FcitxKeyMapping.FcitxKey_Left -> consumer.moveCursor(-1)
+                            FcitxKeyMapping.FcitxKey_Right -> consumer.moveCursor(1)
+                            else -> if (it.unicode > 0) {
+                                consumer.commitText(Character.toString(it.unicode))
+                            } else {
+                                Timber.w("Unhandled Virtual KeyEvent for text consumer: $it")
+                            }
+                        }
+                        return@event
+                    }
                     when (it.sym.sym) {
                         FcitxKeyMapping.FcitxKey_BackSpace -> handleBackspaceKey()
                         FcitxKeyMapping.FcitxKey_Return -> handleReturnKey()
@@ -303,11 +336,14 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
                 }
             }
             is FcitxEvent.ClientPreeditEvent -> {
-                updateComposingText(event.data)
+                if (inputTextConsumer == null) {
+                    updateComposingText(event.data)
+                }
             }
             is FcitxEvent.DeleteSurroundingEvent -> {
                 val (before, after) = event.data
-                handleDeleteSurrounding(before, after)
+                inputTextConsumer?.deleteSurrounding(before, after)
+                    ?: handleDeleteSurrounding(before, after)
             }
             is FcitxEvent.IMChangeEvent -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -601,7 +637,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
 
     override fun onComputeInsets(outInsets: Insets) {
         if (inputDeviceMgr.isVirtualKeyboard) {
-            inputView?.keyboardView?.getLocationInWindow(inputViewLocation)
+            inputView?.visibleInputView?.getLocationInWindow(inputViewLocation)
             outInsets.apply {
                 contentTopInsets = inputViewLocation[1]
                 visibleTopInsets = inputViewLocation[1]
