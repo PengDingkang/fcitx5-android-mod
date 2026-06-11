@@ -3,8 +3,44 @@ name: Build
 on:
   push:
     branches: [mod]
+    paths:
+      - ".github/workflows/build.yml"
+      - ".gitattributes"
+      - ".gitmodules"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradlew"
+      - "gradlew.bat"
+      - "gradle/**"
+      - "build-logic/**"
+      - "codegen/**"
+      - "app/build.gradle.kts"
+      - "app/proguard-rules.pro"
+      - "app/licenses/**"
+      - "app/src/**"
+      - "lib/**"
+      - "plugin/anthy/**"
   pull_request:
     branches: [mod]
+    paths:
+      - ".github/workflows/build.yml"
+      - ".gitattributes"
+      - ".gitmodules"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradlew"
+      - "gradlew.bat"
+      - "gradle/**"
+      - "build-logic/**"
+      - "codegen/**"
+      - "app/build.gradle.kts"
+      - "app/proguard-rules.pro"
+      - "app/licenses/**"
+      - "app/src/**"
+      - "lib/**"
+      - "plugin/anthy/**"
   workflow_dispatch:
 
 concurrency:
