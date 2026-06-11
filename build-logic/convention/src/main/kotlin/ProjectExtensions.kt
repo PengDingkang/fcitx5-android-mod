@@ -48,6 +48,11 @@ val Project.buildVersionName
         runCmd("git describe --tags --long --always", Versions.baseVersionName)
     }
 
+val Project.buildBaseVersionCode
+    get() = ep("BUILD_BASE_VERSION_CODE", "buildBaseVersionCode") {
+        Versions.defaultBaseVersionCode.toString()
+    }.toInt()
+
 val Project.buildCommitHash
     get() = ep("BUILD_COMMIT_HASH", "buildCommitHash") {
         runCmd("git rev-parse HEAD", "N/A")

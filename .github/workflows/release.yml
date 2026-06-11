@@ -12,6 +12,15 @@ on:
         required: true
         default: true
         type: boolean
+      include_anthy:
+        description: "Build and upload the Anthy plugin APK"
+        required: true
+        default: "auto"
+        type: choice
+        options:
+          - "auto"
+          - "yes"
+          - "no"
 
 concurrency:
   group: release-${{ inputs.tag }}
@@ -43,6 +52,26 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Resolve release version
+        run: |
+          git fetch --force --tags origin master:refs/remotes/origin/master
+          version="${{ inputs.tag }}"
+          version="${version#mod-v}"
+          IFS=. read -r major minor patch <<< "$version"
+          base_version_code=$((1000 + 10#$major * 1000000 + 10#$minor * 1000 + 10#$patch))
+          upstream_master_sha="$(git rev-parse origin/master)"
+          ahead_count="$(git rev-list --count origin/master..HEAD)"
+          release_version_name="${{ inputs.tag }}-a${ahead_count}"
+          {
+            echo "BUILD_BASE_VERSION_CODE=$base_version_code"
+            echo "UPSTREAM_MASTER_SHA=$upstream_master_sha"
+            echo "RELEASE_AHEAD_COUNT=$ahead_count"
+            echo "RELEASE_VERSION_NAME=$release_version_name"
+          } >> "$GITHUB_ENV"
+          echo "Upstream master commit: $upstream_master_sha"
+          echo "Release version name: $release_version_name"
+          echo "Release base version code: $base_version_code"
+
       - name: Ensure tag does not exist
         run: |
           git fetch --tags --force
@@ -57,10 +86,12 @@ jobs:
           if [ -f "$notes" ]; then
             cp "$notes" RELEASE_NOTES.md
           else
-            cat > RELEASE_NOTES.md <<'EOF'
+            cat > RELEASE_NOTES.md <<EOF
           # ${{ inputs.tag }}
 
           This release was created without prepared release notes.
+
+          Based on upstream fcitx5-android commit: $UPSTREAM_MASTER_SHA
 
           ## Install
 
@@ -73,6 +104,62 @@ jobs:
           - Release notes were not prepared before publishing.
           EOF
           fi
+          notes_upstream_sha="$(sed -n 's/^Based on upstream fcitx5-android commit: //p' RELEASE_NOTES.md | head -n 1)"
+          if [ -z "$notes_upstream_sha" ] || [ "$notes_upstream_sha" = "<sha>" ]; then
+            echo "::error::Release notes must include: Based on upstream fcitx5-android commit: $UPSTREAM_MASTER_SHA"
+            exit 1
+          fi
+          if [ "$notes_upstream_sha" != "$UPSTREAM_MASTER_SHA" ]; then
+            echo "::error::Release notes upstream commit ($notes_upstream_sha) does not match origin/master ($UPSTREAM_MASTER_SHA)"
+            exit 1
+          fi
+          {
+            echo
+            echo "## Build Metadata"
+            echo
+            echo "- Upstream master commit: \`$UPSTREAM_MASTER_SHA\`"
+            echo "- Version name: \`$RELEASE_VERSION_NAME\`"
+            echo "- Commits ahead of upstream master: $RELEASE_AHEAD_COUNT"
+          } >> RELEASE_NOTES.md
+
+      - name: Resolve Anthy release mode
+        id: anthy
+        run: |
+          mode="${{ inputs.include_anthy }}"
+          include="false"
+          reason=""
+          case "$mode" in
+            yes)
+              include="true"
+              reason="forced by workflow input"
+              ;;
+            no)
+              include="false"
+              reason="disabled by workflow input"
+              ;;
+            auto)
+              previous_tag="$(git tag --list 'mod-v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+              if [ -z "$previous_tag" ]; then
+                include="true"
+                reason="no previous mod release tag exists"
+              elif git diff --quiet "$previous_tag"..HEAD -- plugin/anthy; then
+                include="false"
+                reason="plugin/anthy has no changes since $previous_tag"
+              else
+                include="true"
+                reason="plugin/anthy changed since $previous_tag"
+              fi
+              ;;
+            *)
+              echo "::error::Unknown include_anthy value: $mode"
+              exit 1
+              ;;
+          esac
+          {
+            echo "include=$include"
+            echo "reason=$reason"
+          } >> "$GITHUB_OUTPUT"
+          echo "include_anthy=$include ($reason)"
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -119,13 +206,21 @@ jobs:
           SIGN_KEY_PWD: ${{ secrets.SIGN_KEY_PWD }}
           SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS }}
           SIGN_KEY_KEY_PWD: ${{ secrets.SIGN_KEY_KEY_PWD }}
-        run: ./gradlew :app:assembleRelease :plugin:anthy:assembleRelease
+          BUILD_VERSION_NAME: ${{ env.RELEASE_VERSION_NAME }}
+        run: |
+          tasks=":app:assembleRelease"
+          if [ "${{ steps.anthy.outputs.include }}" = "true" ]; then
+            tasks="$tasks :plugin:anthy:assembleRelease"
+          fi
+          ./gradlew $tasks
 
       - name: Collect release artifacts
         run: |
           mkdir -p release-artifacts
           cp app/build/outputs/apk/release/*.apk release-artifacts/
-          cp plugin/anthy/build/outputs/apk/release/*.apk release-artifacts/
+          if [ "${{ steps.anthy.outputs.include }}" = "true" ]; then
+            cp plugin/anthy/build/outputs/apk/release/*.apk release-artifacts/
+          fi
           cd release-artifacts
           sha256sum *.apk > SHA256SUMS.txt
 

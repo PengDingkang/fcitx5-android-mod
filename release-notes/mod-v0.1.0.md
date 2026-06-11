@@ -4,12 +4,20 @@ This is an unofficial preview build of Fcitx5 Android Mod.
 
 Based on upstream fcitx5-android commit: 4dda210837eb2dda3298933c466080c9b62bc29f
 
+Release build version: mod-v0.1.0-aN
+
+`aN` means this mod branch is N commits ahead of upstream `master` at release time. The release workflow appends the exact value to the GitHub Release notes.
+
 ## Install
 
 - Use release APKs for daily testing.
 - Official upstream APKs cannot be upgraded in-place because signatures differ.
 - If you are migrating from the official upstream app, export your data first, uninstall the official app, then install this mod build.
 - Install the Anthy plugin APK from the same release if you need Japanese input.
+
+## Plugin Artifacts
+
+- Anthy: included. This first mod preview includes the Anthy candidate input improvements.
 
 ## Added
 

@@ -16,6 +16,9 @@
 ### Changed
 
 - Build CI 只在输入法本体、Anthy 插件或构建相关路径变化时触发。
+- 手动发版 workflow 使用 `<tag>-aN` 作为 release 构建版本名，其中 `N` 是当前 mod 分支相对上游 `master` 的 ahead commit 数；Android `versionCode` 仍从 tag 推导。
+- 手动发版 workflow 校验 release notes 中记录的上游 `master` commit，必须和计算 `aN` 时使用的 `origin/master` 一致。
+- 手动发版 workflow 增加 Anthy 插件产物选项：`auto` 仅在首次发版或 `plugin/anthy` 有变化时上传，也可手动选择包含或跳过。
 
 ## mod-v0.1.0 Preview - Planned
 

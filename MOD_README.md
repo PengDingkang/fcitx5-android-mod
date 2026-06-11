@@ -14,10 +14,12 @@
 
 建议普通试用者只安装 release APK。
 
-- 本体 APK：`org.fcitx.fcitx5.android-*-release.apk`
-- Anthy 插件 APK：`org.fcitx.fcitx5.android.plugin.anthy-*-release.apk`
+- 本体 APK：`org.fcitx.fcitx5.android-mod-vX.Y.Z-aN-arm64-v8a-release.apk`
+- Anthy 插件 APK：`org.fcitx.fcitx5.android.plugin.anthy-mod-vX.Y.Z-aN-arm64-v8a-release.apk`，仅在该版本包含 Anthy 变化或发版时手动选择包含插件时上传。
 
 CI build 会同时产出 debug 和 release artifact。debug/dev 构建只用于本地调试，不建议作为日常输入法长期使用。
+
+release 文件名和应用内版本里的 `aN` 表示当前 mod 分支相对上游 `master` 多出的 commit 数，例如 `mod-v0.1.0-a15` 表示比上游 `master` 多 15 个 mod commit。Android 升级判断仍使用从 tag 推导的 `versionCode`，不依赖 `aN`。
 
 ## 签名和升级
 
@@ -29,7 +31,7 @@ mod 版使用自己的 release 签名，不兼容上游官方 APK 的签名。
 - 从上游版本迁移到 mod 版前，需要先导出配置和用户数据，再卸载上游版本并安装 mod 版。
 - mod 版之后的正式 release 应继续使用同一套 release key；否则用户也无法直接升级。
 
-如果同时安装插件，插件 APK 也应使用同一批 release 构建产物。
+如果同时安装插件，插件 APK 应使用 release notes 标记的兼容版本；不是每个本体 release 都会重新上传 Anthy 插件。
 
 ## 主要 mod 功能
 
@@ -61,7 +63,7 @@ AI 翻译功能会在用户确认发送后调用外部 API。为了避免浪费 
 - 目前主要测试 arm64-v8a。
 - debug/dev/release 构建不建议混用作为日常输入法。
 - AI 翻译先以 DeepSeek 兼容流程验证，其他自定义 API 需要逐步测试。
-- Anthy 插件仍需要和本体版本一起测试，避免候选词协议或数据文件不匹配。
+- Anthy 插件仍需要按 release notes 标记的兼容版本测试，避免候选词协议或数据文件不匹配。
 
 ## 反馈和记录
 

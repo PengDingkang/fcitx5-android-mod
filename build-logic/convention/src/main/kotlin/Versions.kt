@@ -16,14 +16,14 @@ object Versions {
     const val defaultNDK = "28.0.13004108"
     const val defaultBuildTools = "36.1.0"
 
-    // NOTE: increase this value to bump version code
-    const val baseVersionCode = 10
+    // NOTE: increase this value to bump version code for regular local builds.
+    const val defaultBaseVersionCode = 10
     const val baseVersionName = "0.1.2"
 
     val supportedABIs = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
     const val fallbackABI = "arm64-v8a"
 
-    fun calculateVersionCode(abi: String = fallbackABI): Int {
+    fun calculateVersionCode(baseVersionCode: Int = defaultBaseVersionCode, abi: String = fallbackABI): Int {
         val abiId = when (abi) {
             "armeabi-v7a" -> 1
             "arm64-v8a" -> 2
