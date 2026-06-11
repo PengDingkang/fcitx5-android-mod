@@ -1,5 +1,8 @@
 # fcitx5-android
 
+> [!IMPORTANT]
+> This repository is an unofficial personal mod build. For mod-specific downloads, features, signing notes, and release status, see [MOD_README.md](MOD_README.md) and [CHANGELOG.md](CHANGELOG.md).
+
 [Fcitx5](https://github.com/fcitx/fcitx5) input method framework and engines ported to Android.
 
 ## Download

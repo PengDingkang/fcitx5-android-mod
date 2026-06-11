@@ -1,0 +1,152 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create, for example mod-v0.1.0"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark the GitHub Release as pre-release"
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  BUILD_ABI: arm64-v8a
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Validate tag
+        run: |
+          if ! printf '%s\n' "${{ inputs.tag }}" | grep -Eq '^mod-v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Release tag must look like mod-vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+
+      - name: Fetch source code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Ensure tag does not exist
+        run: |
+          git fetch --tags --force
+          if git rev-parse -q --verify "refs/tags/${{ inputs.tag }}" >/dev/null; then
+            echo "::error::Tag ${{ inputs.tag }} already exists"
+            exit 1
+          fi
+
+      - name: Prepare release notes
+        run: |
+          notes="release-notes/${{ inputs.tag }}.md"
+          if [ -f "$notes" ]; then
+            cp "$notes" RELEASE_NOTES.md
+          else
+            cat > RELEASE_NOTES.md <<'EOF'
+          # ${{ inputs.tag }}
+
+          This release was created without prepared release notes.
+
+          ## Install
+
+          - This is an unofficial mod build.
+          - Use release APKs for daily testing.
+          - Official upstream APKs cannot be upgraded in-place because signatures differ.
+
+          ## Known Issues
+
+          - Release notes were not prepared before publishing.
+          EOF
+          fi
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android environment
+        uses: android-actions/setup-android@v3
+        with:
+          packages: tools platform-tools
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager --install \
+            "platforms;android-36" \
+            "build-tools;36.1.0" \
+            "ndk;28.0.13004108" \
+            "cmake;3.31.6"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y extra-cmake-modules gettext
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Validate release signing secrets
+        env:
+          SIGN_KEY_BASE64: ${{ secrets.SIGN_KEY_BASE64 }}
+          SIGN_KEY_PWD: ${{ secrets.SIGN_KEY_PWD }}
+          SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS }}
+          SIGN_KEY_KEY_PWD: ${{ secrets.SIGN_KEY_KEY_PWD }}
+        run: |
+          test -n "$SIGN_KEY_BASE64" || { echo "::error::Missing SIGN_KEY_BASE64"; exit 1; }
+          test -n "$SIGN_KEY_PWD" || { echo "::error::Missing SIGN_KEY_PWD"; exit 1; }
+          test -n "$SIGN_KEY_ALIAS" || { echo "::error::Missing SIGN_KEY_ALIAS"; exit 1; }
+          test -n "$SIGN_KEY_KEY_PWD" || { echo "::error::Missing SIGN_KEY_KEY_PWD"; exit 1; }
+
+      - name: Build release APKs
+        env:
+          SIGN_KEY_BASE64: ${{ secrets.SIGN_KEY_BASE64 }}
+          SIGN_KEY_PWD: ${{ secrets.SIGN_KEY_PWD }}
+          SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS }}
+          SIGN_KEY_KEY_PWD: ${{ secrets.SIGN_KEY_KEY_PWD }}
+        run: ./gradlew :app:assembleRelease :plugin:anthy:assembleRelease
+
+      - name: Collect release artifacts
+        run: |
+          mkdir -p release-artifacts
+          cp app/build/outputs/apk/release/*.apk release-artifacts/
+          cp plugin/anthy/build/outputs/apk/release/*.apk release-artifacts/
+          cd release-artifacts
+          sha256sum *.apk > SHA256SUMS.txt
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ inputs.tag }}" -F RELEASE_NOTES.md
+          git push origin "refs/tags/${{ inputs.tag }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease_flag=""
+          if [ "${{ inputs.prerelease }}" = "true" ]; then
+            prerelease_flag="--prerelease"
+          fi
+          gh release create "${{ inputs.tag }}" \
+            --title "${{ inputs.tag }}" \
+            --notes-file RELEASE_NOTES.md \
+            $prerelease_flag \
+            release-artifacts/*.apk \
+            release-artifacts/SHA256SUMS.txt
