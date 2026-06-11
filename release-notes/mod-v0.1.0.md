@@ -2,7 +2,7 @@
 
 This is an unofficial preview build of Fcitx5 Android Mod.
 
-Based on upstream fcitx5-android commit: TBD
+Based on upstream fcitx5-android commit: 4dda210837eb2dda3298933c466080c9b62bc29f
 
 ## Install
 
