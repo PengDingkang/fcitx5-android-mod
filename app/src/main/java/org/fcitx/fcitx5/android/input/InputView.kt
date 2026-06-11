@@ -8,7 +8,9 @@ package org.fcitx.fcitx5.android.input
 import android.annotation.SuppressLint
 import android.content.res.Configuration
 import android.os.Build
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowInsets
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InlineSuggestionsResponse
@@ -21,6 +23,7 @@ import org.fcitx.fcitx5.android.core.CapabilityFlags
 import org.fcitx.fcitx5.android.core.FcitxEvent
 import org.fcitx.fcitx5.android.daemon.FcitxConnection
 import org.fcitx.fcitx5.android.daemon.launchOnReady
+import org.fcitx.fcitx5.android.data.InputFeedbacks
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreferenceProvider
@@ -75,6 +78,15 @@ class InputView(
     fcitx: FcitxConnection,
     theme: Theme
 ) : BaseInputView(service, fcitx, theme) {
+
+    private data class CandidatePriorityTouch(
+        val pointerId: Int,
+        val candidateIndex: Int,
+        val candidateView: View,
+        val downRawX: Float,
+        val downRawY: Float,
+        var canceled: Boolean = false
+    )
 
     private val keyBorder by ThemeManager.prefs.keyBorder
 
@@ -150,6 +162,12 @@ class InputView(
     private val keyboardBottomPadding = keyboardPrefs.keyboardBottomPadding
     private val keyboardBottomPaddingLandscape = keyboardPrefs.keyboardBottomPaddingLandscape
     private val keyboardNumberRowMode = keyboardPrefs.keyboardNumberRowMode
+    private val candidateTouchPriority by keyboardPrefs.candidateTouchPriority
+
+    private val candidatePriorityTouchExtensionPx by lazy { dp(12) }
+    private val candidatePriorityTouchSlop by lazy { ViewConfiguration.get(context).scaledTouchSlop }
+    private val keyboardViewScreenLocation = IntArray(2)
+    private var candidatePriorityTouchState: CandidatePriorityTouch? = null
 
     private val keyboardSizePrefs = listOf(
         keyboardHeightPercent,
@@ -345,6 +363,108 @@ class InputView(
         preedit.ui.root.setPadding(leftPadding, 0, rightPadding, 0)
         translation.setSidePadding(leftPadding, rightPadding)
         kawaiiBar.view.setPadding(leftPadding, 0, rightPadding, 0)
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        return if (handleCandidatePriorityTouch(event)) {
+            true
+        } else {
+            super.dispatchTouchEvent(event)
+        }
+    }
+
+    private fun handleCandidatePriorityTouch(event: MotionEvent): Boolean {
+        val activeTouch = candidatePriorityTouchState
+        if (activeTouch != null) {
+            return continueCandidatePriorityTouch(event, activeTouch)
+        }
+        if (event.actionMasked != MotionEvent.ACTION_DOWN) return false
+        val target = candidatePriorityTargetAt(event.rawX, event.rawY) ?: return false
+        pressCandidatePriorityView(target.view, true, target.localX)
+        InputFeedbacks.hapticFeedback(target.view)
+        InputFeedbacks.soundEffect(InputFeedbacks.SoundEffect.Standard)
+        candidatePriorityTouchState = CandidatePriorityTouch(
+            pointerId = event.getPointerId(event.actionIndex),
+            candidateIndex = target.index,
+            candidateView = target.view,
+            downRawX = event.rawX,
+            downRawY = event.rawY
+        )
+        return true
+    }
+
+    private fun continueCandidatePriorityTouch(
+        event: MotionEvent,
+        state: CandidatePriorityTouch
+    ): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_MOVE -> {
+                val pointerIndex = event.findPointerIndex(state.pointerId)
+                if (pointerIndex < 0) {
+                    cancelCandidatePriorityTouch(state)
+                    return true
+                }
+                val dx = event.getX(pointerIndex) + event.rawX - event.x - state.downRawX
+                val dy = event.getY(pointerIndex) + event.rawY - event.y - state.downRawY
+                if (dx * dx + dy * dy > candidatePriorityTouchSlop * candidatePriorityTouchSlop) {
+                    cancelCandidatePriorityTouch(state)
+                }
+                return true
+            }
+            MotionEvent.ACTION_UP -> {
+                pressCandidatePriorityView(state.candidateView, false)
+                if (!state.canceled) {
+                    InputFeedbacks.hapticFeedback(state.candidateView, longPress = true, keyUp = true)
+                    horizontalCandidate.selectCandidate(state.candidateIndex)
+                }
+                candidatePriorityTouchState = null
+                return true
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                pressCandidatePriorityView(state.candidateView, false)
+                candidatePriorityTouchState = null
+                return true
+            }
+            else -> return true
+        }
+    }
+
+    private fun cancelCandidatePriorityTouch(state: CandidatePriorityTouch) {
+        if (!state.canceled) {
+            state.canceled = true
+            pressCandidatePriorityView(state.candidateView, false)
+        }
+    }
+
+    private fun pressCandidatePriorityView(view: View, pressed: Boolean, localX: Float? = null) {
+        if (pressed && localX != null) {
+            view.drawableHotspotChanged(localX, view.height / 2f)
+        }
+        view.isPressed = pressed
+    }
+
+    private fun candidatePriorityTargetAt(
+        rawX: Float,
+        rawY: Float
+    ): HorizontalCandidateComponent.CandidateTouchTarget? {
+        if (!candidateTouchPriority ||
+            keyboardNumberRowMode.getValue() != NumberRowMode.Always ||
+            translation.isActive ||
+            !hasPreeditOrCandidates()
+        ) {
+            return null
+        }
+        keyboardView.getLocationOnScreen(keyboardViewScreenLocation)
+        val keyboardTop = keyboardViewScreenLocation[1]
+        val barBottom = keyboardTop + kawaiiBar.view.height
+        if (rawY < barBottom || rawY >= barBottom + candidatePriorityTouchExtensionPx) {
+            return null
+        }
+        return horizontalCandidate.candidateTouchTargetAtScreenX(rawX)
+    }
+
+    private fun hasPreeditOrCandidates(): Boolean {
+        return !preeditEmptyState.isEmpty || horizontalCandidate.hasCandidates()
     }
 
     override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {

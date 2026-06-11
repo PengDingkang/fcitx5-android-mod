@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import org.fcitx.fcitx5.android.core.FcitxAPI
+import org.fcitx.fcitx5.android.core.KeyStates
 import org.fcitx.fcitx5.android.daemon.launchOnReady
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.input.broadcast.PreeditEmptyStateComponent
@@ -61,6 +62,8 @@ class CommonKeyActionListener :
 
     private val spaceKeyLongPressBehavior by kbdPrefs.spaceKeyLongPressBehavior
     private val langSwitchKeyBehavior by kbdPrefs.langSwitchKeyBehavior
+    private val keyboardNumberRowMode by kbdPrefs.keyboardNumberRowMode
+    private val numberRowDirectDigitOnPreedit by kbdPrefs.numberRowDirectDigitOnPreedit
 
     private var backspaceSwipeState = Stopped
 
@@ -79,6 +82,15 @@ class CommonKeyActionListener :
         reset()
     }
 
+    private fun hasPreeditOrCandidates(): Boolean {
+        return !preeditState.isEmpty || horizontalCandidate.adapter.candidates.isNotEmpty()
+    }
+
+    private fun SymAction.directAsciiDigitOrNull(): Char? {
+        if (states != KeyStates.Virtual) return null
+        return sym.sym.takeIf { it in '0'.code..'9'.code }?.toChar()
+    }
+
     private fun showInputMethodPicker() {
         fcitx.launchOnReady {
             service.lifecycleScope.launch {
@@ -93,8 +105,19 @@ class CommonKeyActionListener :
                 is FcitxKeyAction -> service.postFcitxJob {
                     sendKey(action.act, action.states.states, action.code)
                 }
-                is SymAction -> service.postFcitxJob {
-                    sendKey(action.sym, action.states)
+                is SymAction -> {
+                    val digit = action.directAsciiDigitOrNull()
+                    if (numberRowDirectDigitOnPreedit &&
+                        keyboardNumberRowMode == NumberRowMode.Always &&
+                        digit != null &&
+                        hasPreeditOrCandidates()
+                    ) {
+                        service.commitText(digit.toString())
+                    } else {
+                        service.postFcitxJob {
+                            sendKey(action.sym, action.states)
+                        }
+                    }
                 }
                 is CommitAction -> service.postFcitxJob {
                     commitAndReset()

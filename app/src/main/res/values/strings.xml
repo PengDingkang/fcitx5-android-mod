@@ -203,6 +203,10 @@
     <string name="keyboard_number_row_disabled">Disabled</string>
     <string name="keyboard_number_row_password">Show on toolbar when inputting password</string>
     <string name="keyboard_number_row_always">Always show on keyboard</string>
+    <string name="keyboard_candidate_touch_priority">Prioritize candidate taps near number row</string>
+    <string name="keyboard_candidate_touch_priority_summary">When candidates are shown, taps just below the candidate bar select the nearby candidate instead of the top edge of the number row.</string>
+    <string name="keyboard_number_row_direct_digit_on_preedit">Do not submit candidates with number row digits</string>
+    <string name="keyboard_number_row_direct_digit_on_preedit_summary">When preedit or candidates are shown, number row digits are inserted directly instead of being sent to Fcitx as candidate-selection keys.</string>
     <string name="space_long_press_behavior">Space key long press behavior</string>
     <string name="space_behavior_none">None</string>
     <string name="space_behavior_enumerate">Enumerate input methods</string>

@@ -168,6 +168,18 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
             "keyboard_number_row_mode",
             NumberRowMode.Password
         )
+        val candidateTouchPriority = switch(
+            R.string.keyboard_candidate_touch_priority,
+            "keyboard_candidate_touch_priority",
+            true,
+            R.string.keyboard_candidate_touch_priority_summary
+        ) { keyboardNumberRowMode.getValue() == NumberRowMode.Always }
+        val numberRowDirectDigitOnPreedit = switch(
+            R.string.keyboard_number_row_direct_digit_on_preedit,
+            "keyboard_number_row_direct_digit_on_preedit",
+            false,
+            R.string.keyboard_number_row_direct_digit_on_preedit_summary
+        ) { keyboardNumberRowMode.getValue() == NumberRowMode.Always }
         val popupOnKeyPress = switch(R.string.popup_on_key_press, "popup_on_key_press", true)
         val keepLettersUppercase = switch(
             R.string.keep_keyboard_letters_uppercase,

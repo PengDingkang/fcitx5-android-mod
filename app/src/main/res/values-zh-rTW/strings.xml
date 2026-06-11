@@ -203,6 +203,10 @@
     <string name="keyboard_number_row_disabled">不顯示</string>
     <string name="keyboard_number_row_password">僅輸入密碼時在工具欄顯示</string>
     <string name="keyboard_number_row_always">始終在鍵盤上顯示</string>
+    <string name="keyboard_candidate_touch_priority">數字列附近優先點擊候選詞</string>
+    <string name="keyboard_candidate_touch_priority_summary">顯示候選詞時，候選欄下方的邊界點擊會優先選擇對應候選詞，而不是觸發數字列上緣。</string>
+    <string name="keyboard_number_row_direct_digit_on_preedit">數字列輸入不提交首選候選</string>
+    <string name="keyboard_number_row_direct_digit_on_preedit_summary">顯示拼音或候選詞時，數字列按鍵直接輸入數字，不再交給 Fcitx 觸發候選詞提交。</string>
     <string name="space_long_press_behavior">空格鍵長按行為</string>
     <string name="space_behavior_none">無</string>
     <string name="space_behavior_enumerate">輪換輸入法</string>

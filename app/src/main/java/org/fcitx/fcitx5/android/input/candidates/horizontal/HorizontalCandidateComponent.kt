@@ -8,6 +8,8 @@ package org.fcitx.fcitx5.android.input.candidates.horizontal
 import android.content.res.Configuration
 import android.graphics.drawable.ShapeDrawable
 import android.graphics.drawable.shapes.RectShape
+import android.view.View
+import androidx.core.view.children
 import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.flexbox.FlexboxLayoutManager
@@ -39,6 +41,12 @@ import kotlin.math.max
 class HorizontalCandidateComponent :
     UniqueViewComponent<HorizontalCandidateComponent, RecyclerView>(), InputBroadcastReceiver {
 
+    data class CandidateTouchTarget(
+        val index: Int,
+        val view: View,
+        val localX: Float
+    )
+
     private val context by manager.context()
     private val fcitx by manager.fcitx()
     private val theme by manager.theme()
@@ -66,6 +74,7 @@ class HorizontalCandidateComponent :
      */
     private var secondLayoutPassNeeded = false
     private var secondLayoutPassDone = false
+    private val viewScreenLocation = IntArray(2)
 
     // Since expanded candidate window is created once the expand button was clicked,
     // we need to replay the last offset
@@ -107,6 +116,32 @@ class HorizontalCandidateComponent :
                 super.onViewRecycled(holder)
             }
         }
+    }
+
+    fun hasCandidates(): Boolean {
+        return adapter.candidates.isNotEmpty()
+    }
+
+    fun candidateTouchTargetAtScreenX(screenX: Float): CandidateTouchTarget? {
+        if (!view.isShown || adapter.candidates.isEmpty()) return null
+        view.getLocationOnScreen(viewScreenLocation)
+        val localX = screenX - viewScreenLocation[0] + view.scrollX
+        if (localX < 0f || localX >= view.width) return null
+        for (child in view.children) {
+            if (localX >= child.left && localX < child.right) {
+                val holder = view.getChildViewHolder(child) as? CandidateViewHolder
+                val index = holder?.idx?.takeIf { it in adapter.candidates.indices }
+                if (index != null) {
+                    return CandidateTouchTarget(index, child, localX - child.left)
+                }
+            }
+        }
+        return null
+    }
+
+    fun selectCandidate(index: Int) {
+        if (index !in adapter.candidates.indices) return
+        fcitx.launchOnReady { it.select(index) }
     }
 
     val layoutManager: FlexboxLayoutManager by lazy {
