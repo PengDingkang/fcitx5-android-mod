@@ -57,8 +57,17 @@ class ClipboardUi(override val ctx: Context, private val theme: Theme) : Ui {
         contentDescription = ctx.getString(R.string.delete_all)
     }
 
+    val addPinnedButton = ToolButton(ctx, R.drawable.ic_baseline_plus_24, theme).apply {
+        contentDescription = ctx.getString(R.string.add_pinned_clipboard_item)
+    }
+
     val extension = horizontalLayout {
+        add(addPinnedButton, lParams(dp(40), dp(40)))
         add(deleteAllButton, lParams(dp(40), dp(40)))
+    }
+
+    private fun setAddButtonShown(enabled: Boolean) {
+        addPinnedButton.visibility = if (enabled) View.VISIBLE else View.INVISIBLE
     }
 
     private fun setDeleteButtonShown(enabled: Boolean) {
@@ -72,14 +81,17 @@ class ClipboardUi(override val ctx: Context, private val theme: Theme) : Ui {
         when (state) {
             ClipboardStateMachine.State.Normal -> {
                 viewAnimator.displayedChild = 0
+                setAddButtonShown(true)
                 setDeleteButtonShown(true)
             }
             ClipboardStateMachine.State.AddMore -> {
                 viewAnimator.displayedChild = 1
+                setAddButtonShown(true)
                 setDeleteButtonShown(false)
             }
             ClipboardStateMachine.State.EnableListening -> {
                 viewAnimator.displayedChild = 2
+                setAddButtonShown(false)
                 setDeleteButtonShown(false)
             }
         }

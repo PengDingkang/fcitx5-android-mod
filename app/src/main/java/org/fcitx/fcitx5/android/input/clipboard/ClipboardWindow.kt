@@ -18,6 +18,8 @@ import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
+import androidx.paging.insertSeparators
+import androidx.paging.map
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
@@ -140,6 +142,7 @@ class ClipboardWindow : InputWindow.ExtendedInputWindow<ClipboardWindow>() {
                     recyclerView: RecyclerView,
                     viewHolder: RecyclerView.ViewHolder
                 ): Int {
+                    if (viewHolder !is ClipboardAdapter.ViewHolder.Entry) return 0
                     return makeMovementFlags(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT)
                 }
 
@@ -159,6 +162,9 @@ class ClipboardWindow : InputWindow.ExtendedInputWindow<ClipboardWindow>() {
                     }
                 }
             }).attachToRecyclerView(recyclerView)
+            addPinnedButton.setOnClickListener {
+                AppUtil.launchClipboardAddPinned(context)
+            }
             enableUi.enableButton.setOnClickListener {
                 clipboardEnabledPref.setValue(true)
             }
@@ -269,7 +275,26 @@ class ClipboardWindow : InputWindow.ExtendedInputWindow<ClipboardWindow>() {
         }
         adapterSubmitJob = service.lifecycleScope.launch {
             clipboardEntriesPager.flow.collect {
-                adapter.submitData(it)
+                adapter.submitData(
+                    it.map { entry -> ClipboardListItem.Entry(entry) }
+                        .insertSeparators { before, after ->
+                            val afterEntry = after?.entry
+                                ?: return@insertSeparators null
+                            val beforeEntry = before?.entry
+                            when {
+                                beforeEntry == null -> ClipboardListItem.Header(
+                                    if (afterEntry.pinned) {
+                                        R.string.clipboard_pinned_items
+                                    } else {
+                                        R.string.clipboard_recent_items
+                                    }
+                                )
+                                !beforeEntry.pinned && afterEntry.pinned ->
+                                    ClipboardListItem.Header(R.string.clipboard_pinned_items)
+                                else -> null
+                            }
+                        }
+                )
             }
         }
         clipboardEnabledPref.registerOnChangeListener(clipboardEnabledListener)

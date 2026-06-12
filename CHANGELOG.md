@@ -2,7 +2,7 @@
 
 本文件记录 mod 版的用户可见变化。内部重构、CI 调整和上游同步只在影响安装、升级、输入行为或构建产物时记录。
 
-当前还没有正式 release。第一版计划以 `mod-v0.1.0 Preview` 发布。
+当前公开预览版从 `mod-v0.1.0 Preview` 开始发布。
 
 正式发布前，为对应 tag 准备 `release-notes/<tag>.md`。手动发版 workflow 会优先使用该文件作为 GitHub Release notes；如果文件不存在，会使用默认说明。
 
@@ -10,20 +10,19 @@
 
 ### Added
 
-- 增加 mod 版用户说明和 changelog。
-- 增加手动发版 workflow：输入 tag 后构建 release APK、创建 tag、发布 GitHub Release，并优先读取 `release-notes/<tag>.md` 作为 release notes。
+- 剪贴板面板按“近期记录”和“置顶”分区显示，近期记录始终位于置顶项上方。
+- 剪贴板面板增加 `+` 入口，可手动新增置顶文本。
 
 ### Changed
 
-- Build CI 只在输入法本体、Anthy 插件或构建相关路径变化时触发。
-- 手动发版 workflow 使用 `<tag>-aN` 作为 release 构建版本名，其中 `N` 是当前 mod 分支相对上游 `master` 的 ahead commit 数；Android `versionCode` 仍从 tag 推导。
-- 手动发版 workflow 校验 release notes 中记录的上游 `master` commit，必须和计算 `aN` 时使用的 `origin/master` 一致。
-- 手动发版 workflow 增加 Anthy 插件产物选项：`auto` 仅在首次发版或 `plugin/anthy` 有变化时上传，也可手动选择包含或跳过。
+- 新增置顶文本页面使用独立标题、输入提示和保存按钮，避免和编辑剪贴板历史项混淆。
 
-## mod-v0.1.0 Preview - Planned
+## mod-v0.1.0 Preview
 
 ### Added
 
+- 增加 mod 版用户说明和 changelog。
+- 增加手动发版 workflow：输入 tag 后构建 release APK、创建 tag、发布 GitHub Release，并优先读取 `release-notes/<tag>.md` 作为 release notes。
 - 单手输入相关设置：键盘左右边距可分别调整。
 - 始终显示数字行模式。
 - 数字行附近候选词触摸优先，降低候选词和数字行边界误触。
@@ -35,9 +34,16 @@
 - 本地 release signing 和 CI release signing 分离。
 - debug 数据导入兼容性修复。
 
+### Changed
+
+- Build CI 只在输入法本体、Anthy 插件或构建相关路径变化时触发。
+- 手动发版 workflow 使用 `<tag>-aN` 作为 release 构建版本名，其中 `N` 是当前 mod 分支相对上游 `master` 的 ahead commit 数；Android `versionCode` 仍从 tag 推导。
+- 手动发版 workflow 校验 release notes 中记录的上游 `master` commit，必须和计算 `aN` 时使用的 `origin/master` 一致。
+- 手动发版 workflow 增加 Anthy 插件产物选项：`auto` 仅在首次发版或 `plugin/anthy` 有变化时上传，也可手动选择包含或跳过。
+
 ### Known Issues
 
-- 该版本计划标记为 pre-release。
+- 该版本标记为 pre-release。
 - 主要测试目标为 arm64-v8a。
 - 从上游官方版迁移到 mod 版不能直接覆盖安装，需要先导出数据并重新安装。
 - AI 翻译请求会把待翻译文本发送给配置的 API 服务。

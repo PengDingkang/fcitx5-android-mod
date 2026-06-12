@@ -53,6 +53,13 @@ object AppUtil {
         }
     }
 
+    fun launchClipboardAddPinned(context: Context) {
+        context.startActivity<ClipboardEditActivity> {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            putExtra(ClipboardEditActivity.CREATE_PINNED, true)
+        }
+    }
+
     fun exit() {
         exitProcess(0)
     }

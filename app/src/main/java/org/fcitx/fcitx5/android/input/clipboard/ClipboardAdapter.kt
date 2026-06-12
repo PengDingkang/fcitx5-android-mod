@@ -4,38 +4,59 @@
  */
 package org.fcitx.fcitx5.android.input.clipboard
 
+import android.graphics.Typeface
 import android.os.Build
+import android.view.View
 import android.view.ViewGroup
 import android.widget.PopupMenu
+import android.widget.TextView
+import androidx.annotation.StringRes
 import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.data.clipboard.db.ClipboardEntry
 import org.fcitx.fcitx5.android.data.theme.Theme
 import org.fcitx.fcitx5.android.utils.DeviceUtil
 import org.fcitx.fcitx5.android.utils.item
+import splitties.dimensions.dp
 import splitties.resources.styledColor
+import splitties.views.setPaddingDp
 import kotlin.math.min
+
+sealed class ClipboardListItem {
+    data class Header(@StringRes val title: Int) : ClipboardListItem()
+    data class Entry(val entry: ClipboardEntry) : ClipboardListItem()
+}
 
 abstract class ClipboardAdapter(
     private val theme: Theme,
     private val entryRadius: Float,
     private val maskSensitive: Boolean
-) : PagingDataAdapter<ClipboardEntry, ClipboardAdapter.ViewHolder>(diffCallback) {
+) : PagingDataAdapter<ClipboardListItem, ClipboardAdapter.ViewHolder>(diffCallback) {
 
     companion object {
-        private val diffCallback = object : DiffUtil.ItemCallback<ClipboardEntry>() {
+        private const val VIEW_TYPE_HEADER = 0
+        private const val VIEW_TYPE_ENTRY = 1
+
+        private val diffCallback = object : DiffUtil.ItemCallback<ClipboardListItem>() {
             override fun areItemsTheSame(
-                oldItem: ClipboardEntry,
-                newItem: ClipboardEntry
+                oldItem: ClipboardListItem,
+                newItem: ClipboardListItem
             ): Boolean {
-                return oldItem.id == newItem.id
+                return when {
+                    oldItem is ClipboardListItem.Header && newItem is ClipboardListItem.Header ->
+                        oldItem.title == newItem.title
+                    oldItem is ClipboardListItem.Entry && newItem is ClipboardListItem.Entry ->
+                        oldItem.entry.id == newItem.entry.id
+                    else -> false
+                }
             }
 
             override fun areContentsTheSame(
-                oldItem: ClipboardEntry,
-                newItem: ClipboardEntry
+                oldItem: ClipboardListItem,
+                newItem: ClipboardListItem
             ): Boolean {
                 return oldItem == newItem
             }
@@ -83,13 +104,55 @@ abstract class ClipboardAdapter(
 
     private var popupMenu: PopupMenu? = null
 
-    class ViewHolder(val entryUi: ClipboardEntryUi) : RecyclerView.ViewHolder(entryUi.root)
+    sealed class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        class Header(val textView: TextView) : ViewHolder(textView)
+        class Entry(val entryUi: ClipboardEntryUi) : ViewHolder(entryUi.root)
+    }
+
+    override fun getItemViewType(position: Int): Int = when (getItem(position)) {
+        is ClipboardListItem.Header -> VIEW_TYPE_HEADER
+        is ClipboardListItem.Entry -> VIEW_TYPE_ENTRY
+        null -> VIEW_TYPE_ENTRY
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
-        ViewHolder(ClipboardEntryUi(parent.context, theme, entryRadius))
+        when (viewType) {
+            VIEW_TYPE_HEADER -> ViewHolder.Header(TextView(parent.context).apply {
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                letterSpacing = 0f
+                setTextColor(theme.altKeyTextColor)
+                setPaddingDp(8, 8, 8, 2)
+                minHeight = parent.context.dp(28)
+            })
+            else -> ViewHolder.Entry(ClipboardEntryUi(parent.context, theme, entryRadius))
+        }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val entry = getItem(position) ?: return
+        when (val item = getItem(position)) {
+            is ClipboardListItem.Header -> bindHeader(holder as ViewHolder.Header, item)
+            is ClipboardListItem.Entry -> bindEntry(holder as ViewHolder.Entry, item.entry)
+            null -> return
+        }
+    }
+
+    override fun onViewAttachedToWindow(holder: ViewHolder) {
+        super.onViewAttachedToWindow(holder)
+        setFullSpan(holder, holder is ViewHolder.Header)
+    }
+
+    private fun setFullSpan(holder: ViewHolder, fullSpan: Boolean) {
+        (holder.itemView.layoutParams as? StaggeredGridLayoutManager.LayoutParams)?.isFullSpan =
+            fullSpan
+    }
+
+    private fun bindHeader(holder: ViewHolder.Header, item: ClipboardListItem.Header) {
+        setFullSpan(holder, true)
+        holder.textView.setText(item.title)
+    }
+
+    private fun bindEntry(holder: ViewHolder.Entry, entry: ClipboardEntry) {
+        setFullSpan(holder, false)
         with(holder.entryUi) {
             setEntry(excerptText(entry.text, entry.sensitive && maskSensitive), entry.pinned)
             root.setOnClickListener {
@@ -131,7 +194,7 @@ abstract class ClipboardAdapter(
         }
     }
 
-    fun getEntryAt(position: Int) = getItem(position)
+    fun getEntryAt(position: Int) = (getItem(position) as? ClipboardListItem.Entry)?.entry
 
     fun onDetached() {
         popupMenu?.dismiss()

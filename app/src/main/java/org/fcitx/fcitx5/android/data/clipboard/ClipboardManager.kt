@@ -108,6 +108,29 @@ object ClipboardManager : ClipboardManager.OnPrimaryClipChangedListener,
 
     suspend fun unpin(id: Int) = clbDao.updatePinStatus(id, false)
 
+    suspend fun addPinned(text: String) {
+        if (text.isBlank()) return
+        mutex.withLock {
+            val timestamp = System.currentTimeMillis()
+            val existing = clbDao.find(text, sensitive = false)
+            if (existing != null) {
+                clbDao.updatePinStatus(existing.id, true)
+                clbDao.updateTime(existing.id, timestamp)
+            } else {
+                clbDb.withTransaction {
+                    clbDao.insert(
+                        ClipboardEntry(
+                            text = text,
+                            pinned = true,
+                            timestamp = timestamp
+                        )
+                    )
+                }
+            }
+            updateItemCount()
+        }
+    }
+
     suspend fun updateText(id: Int, text: String) {
         lastEntry?.let {
             if (id == it.id) updateLastEntry(it.copy(text = text))

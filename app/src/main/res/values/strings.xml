@@ -154,6 +154,10 @@
     <string name="choose_input_method">Choose input method</string>
     <string name="edit_clipboard">Edit clipboard</string>
     <string name="clipboard_edit_text_hint">Clipboard content</string>
+    <string name="add_pinned_clipboard_item">Add pinned text</string>
+    <string name="pinned_clipboard_text_hint">Text to keep pinned</string>
+    <string name="clipboard_recent_items">Recent</string>
+    <string name="clipboard_pinned_items">Pinned</string>
     <string name="config_addon_not_loaded">No configuration options available, maybe this addon is disabled when fcitx starts?</string>
     <string name="portrait">Portrait</string>
     <string name="landscape">Landscape</string>

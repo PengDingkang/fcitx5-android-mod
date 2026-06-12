@@ -8,7 +8,7 @@
 
 目前还没有正式稳定版 release。
 
-第一批公开版本建议以 `mod-v0.1.0 Preview` 开始，并在 GitHub Release 中标记为 pre-release。CI artifact 只作为开发测试构建，不等同于正式 release。
+公开预览版从 `mod-v0.1.0 Preview` 开始，并在 GitHub Release 中标记为 pre-release。CI artifact 只作为开发测试构建，不等同于正式 release。
 
 ## 下载和安装
 
@@ -43,6 +43,7 @@ mod 版使用自己的 release 签名，不兼容上游官方 APK 的签名。
 - 可选“数字行输入不提交首选候选”，有拼音或候选时数字键直接输入数字。
 - 英文/中文布局按 Gboard 风格补充数字行和下划符号布局。
 - 长按候选符号优先当前符号，左右滑动切换其他符号。
+- 剪贴板按近期记录和置顶内容分区显示，并支持手动新增置顶文本。
 - AI 翻译面板，支持 DeepSeek API、自定义 API Key、目标语言选择、翻译预设和发送后保持面板打开。
 - Anthy 插件加入更接近拼音输入的候选词体验。
 

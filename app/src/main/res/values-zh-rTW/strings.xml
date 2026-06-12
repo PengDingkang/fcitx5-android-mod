@@ -154,6 +154,10 @@
     <string name="choose_input_method">選擇輸入法</string>
     <string name="edit_clipboard">編輯剪貼簿</string>
     <string name="clipboard_edit_text_hint">剪貼簿內容</string>
+    <string name="add_pinned_clipboard_item">新增置頂文字</string>
+    <string name="pinned_clipboard_text_hint">輸入要置頂的文字</string>
+    <string name="clipboard_recent_items">近期紀錄</string>
+    <string name="clipboard_pinned_items">置頂</string>
     <string name="config_addon_not_loaded">尚無可用設定，此附加元件可能在 Fcitx 啟動時處於停用狀態。</string>
     <string name="portrait">豎屏</string>
     <string name="landscape">横向畫面</string>
