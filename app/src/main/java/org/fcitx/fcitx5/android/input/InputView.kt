@@ -7,6 +7,9 @@ package org.fcitx.fcitx5.android.input
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration
+import android.graphics.Color
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.os.Build
 import android.view.MotionEvent
 import android.view.View
@@ -35,6 +38,8 @@ import org.fcitx.fcitx5.android.input.broadcast.PunctuationComponent
 import org.fcitx.fcitx5.android.input.broadcast.ReturnKeyDrawableComponent
 import org.fcitx.fcitx5.android.input.candidates.horizontal.HorizontalCandidateComponent
 import org.fcitx.fcitx5.android.input.keyboard.CommonKeyActionListener
+import org.fcitx.fcitx5.android.input.keyboard.KeyVisualEffectListener
+import org.fcitx.fcitx5.android.input.keyboard.KeyboardEffectsView
 import org.fcitx.fcitx5.android.input.keyboard.KeyboardWindow
 import org.fcitx.fcitx5.android.input.keyboard.NumberRowMode
 import org.fcitx.fcitx5.android.input.keyboard.TextKeyboard
@@ -91,6 +96,14 @@ class InputView(
     private val customBackground = imageView {
         scaleType = ImageView.ScaleType.CENTER_CROP
     }
+
+    private val backgroundDimOverlay = view(::View) {
+        isClickable = false
+        isFocusable = false
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
+    private val keyboardEffects = KeyboardEffectsView(context, theme)
 
     private val placeholderOnClickListener = OnClickListener { }
 
@@ -180,6 +193,28 @@ class InputView(
         keyboardNumberRowMode,
     )
 
+    private fun applyKeyboardBackgroundEffects() {
+        customBackground.imageDrawable = theme.backgroundDrawable(keyBorder)
+
+        val dimAmount = ThemeManager.prefs.keyboardBackgroundDimAmount.getValue()
+        backgroundDimOverlay.visibility = if (dimAmount > 0) View.VISIBLE else View.GONE
+        backgroundDimOverlay.setBackgroundColor(
+            Color.argb((dimAmount * 255 / 100).coerceIn(0, 255), 0, 0, 0)
+        )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val blurRadius = ThemeManager.prefs.keyboardBackgroundBlurRadius.getValue()
+            customBackground.setRenderEffect(
+                if (blurRadius > 0) {
+                    val radius = dp(blurRadius).toFloat()
+                    RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
+                } else {
+                    null
+                }
+            )
+        }
+    }
+
     private val keyboardHeightPx: Int
         get() {
             val percent = when (resources.configuration.orientation) {
@@ -252,6 +287,23 @@ class InputView(
         }
 
         // make sure KeyboardWindow's view has been created before it receives any broadcast
+        keyboardWindow.keyVisualEffectListener = object : KeyVisualEffectListener {
+            override fun onKeyPressStart(view: View, rawX: Float, rawY: Float) {
+                keyboardEffects.showLiquidPress(view, rawX, rawY)
+            }
+
+            override fun onKeyPressMove(view: View, rawX: Float, rawY: Float) {
+                keyboardEffects.moveLiquidPress(view, rawX, rawY)
+            }
+
+            override fun onKeyPressEnd(view: View, rawX: Float, rawY: Float) {
+                keyboardEffects.hideLiquidPress(view, rawX, rawY)
+            }
+
+            override fun onKeyReleased(view: View, rawX: Float, rawY: Float) {
+                keyboardEffects.showReleaseRipple(rawX, rawY)
+            }
+        }
         windowManager.addEssentialWindow(keyboardWindow, createView = true)
         windowManager.addEssentialWindow(symbolPicker)
         windowManager.addEssentialWindow(emojiPicker)
@@ -261,7 +313,7 @@ class InputView(
 
         broadcaster.onImeUpdate(fcitx.runImmediately { inputMethodEntryCached })
 
-        customBackground.imageDrawable = theme.backgroundDrawable(keyBorder)
+        applyKeyboardBackgroundEffects()
 
         keyboardView = constraintLayout {
             // allow MotionEvent to be delivered to keyboard while pressing on padding views.
@@ -272,6 +324,7 @@ class InputView(
                 centerVertically()
                 centerHorizontally()
             })
+            add(backgroundDimOverlay, lParams(matchParent, matchParent))
             add(kawaiiBar.view, lParams(matchParent, dp(KawaiiBarComponent.HEIGHT)) {
                 topOfParent()
                 centerHorizontally()
@@ -298,6 +351,7 @@ class InputView(
                 endToStartOf(rightPaddingSpace)
                 bottomOfParent()
             })
+            add(keyboardEffects, lParams(matchParent, matchParent))
         }
 
         updateKeyboardSize()

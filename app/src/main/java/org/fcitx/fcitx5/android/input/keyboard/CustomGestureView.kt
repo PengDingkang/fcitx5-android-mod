@@ -87,10 +87,12 @@ open class CustomGestureView(ctx: Context) : FrameLayout(ctx) {
     var onDoubleTapListener: ((View) -> Unit)? = null
     var onRepeatListener: ((View) -> Unit)? = null
     var onGestureListener: OnGestureListener? = null
+    var keyVisualEffectListener: KeyVisualEffectListener? = null
 
     var soundEffect: InputFeedbacks.SoundEffect = InputFeedbacks.SoundEffect.Standard
 
     private val touchSlop: Float = ViewConfiguration.get(ctx).scaledTouchSlop.toFloat()
+    private var visualEffectActive = false
 
     init {
         // disable system sound effect and haptic feedback
@@ -177,10 +179,16 @@ open class CustomGestureView(ctx: Context) : FrameLayout(ctx) {
                     swipeLastX = x
                     swipeLastY = y
                 }
+                visualEffectActive = true
+                keyVisualEffectListener?.onKeyPressStart(this, event.rawX, event.rawY)
             }
             MotionEvent.ACTION_UP -> {
                 isPressed = false
                 InputFeedbacks.hapticFeedback(this, longPress = true, keyUp = true)
+                if (visualEffectActive) {
+                    keyVisualEffectListener?.onKeyPressEnd(this, event.rawX, event.rawY)
+                    visualEffectActive = false
+                }
                 dispatchGestureEvent(GestureType.Up, event.x, event.y)
                 val shouldPerformClick = !(touchMovedOutside ||
                         longPressTriggered ||
@@ -189,6 +197,7 @@ open class CustomGestureView(ctx: Context) : FrameLayout(ctx) {
                         gestureConsumed)
                 resetState()
                 if (shouldPerformClick) {
+                    keyVisualEffectListener?.onKeyReleased(this, event.rawX, event.rawY)
                     if (doubleTapEnabled) {
                         val now = System.currentTimeMillis()
                         if (maybeDoubleTap && now - lastClickTime <= longPressDelay) {
@@ -208,6 +217,9 @@ open class CustomGestureView(ctx: Context) : FrameLayout(ctx) {
             MotionEvent.ACTION_MOVE -> {
                 if (!isEnabled) return false
                 drawableHotspotChanged(x, y)
+                if (visualEffectActive) {
+                    keyVisualEffectListener?.onKeyPressMove(this, event.rawX, event.rawY)
+                }
                 if (!touchMovedOutside && !pointInView(x, y)) {
                     touchMovedOutside = true
                     if (longPressEnabled) {
@@ -220,6 +232,10 @@ open class CustomGestureView(ctx: Context) : FrameLayout(ctx) {
                     }
                     if (repeatStarted || !swipeEnabled) {
                         isPressed = false
+                        if (visualEffectActive) {
+                            keyVisualEffectListener?.onKeyPressEnd(this, event.rawX, event.rawY)
+                            visualEffectActive = false
+                        }
                     }
                 }
                 if (!swipeEnabled || longPressTriggered || repeatStarted) return true
@@ -232,6 +248,10 @@ open class CustomGestureView(ctx: Context) : FrameLayout(ctx) {
             }
             MotionEvent.ACTION_CANCEL -> {
                 isPressed = false
+                if (visualEffectActive) {
+                    keyVisualEffectListener?.onKeyPressEnd(this, event.rawX, event.rawY)
+                    visualEffectActive = false
+                }
                 dispatchGestureEvent(GestureType.Up, event.x, event.y)
                 resetState()
                 // reset double tap state on cancel

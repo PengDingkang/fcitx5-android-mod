@@ -49,6 +49,7 @@ class DialogSeekBarPreference @JvmOverloads constructor(
 
     var default: Int = 0
     var defaultLabel: String? = null
+    var livePreview: Boolean = false
 
     init {
         context.theme.obtainStyledAttributes(attrs, R.styleable.DialogSeekBarPreference, 0, 0).run {
@@ -93,6 +94,8 @@ class DialogSeekBarPreference @JvmOverloads constructor(
      * Shows the seek bar dialog.
      */
     private fun showSeekBarDialog() {
+        val originalValue = value
+        var previewValue = value
         val textView = context.textView {
             text = textForValue(value)
             textAppearance = context.resolveThemeAttribute(android.R.attr.textAppearanceListItem)
@@ -101,7 +104,12 @@ class DialogSeekBarPreference @JvmOverloads constructor(
             max = progressForValue(this@DialogSeekBarPreference.max)
             progress = progressForValue(value)
             setOnChangeListener {
-                textView.text = textForValue(valueForProgress(it))
+                val newValue = valueForProgress(it)
+                textView.text = textForValue(newValue)
+                if (livePreview && newValue != previewValue) {
+                    previewValue = newValue
+                    setValue(newValue)
+                }
             }
         }
         val dialogContent = context.verticalLayout {
@@ -132,7 +140,12 @@ class DialogSeekBarPreference @JvmOverloads constructor(
             .setNeutralButton(R.string.default_) { _, _ ->
                 setValue(default)
             }
-            .setNegativeButton(android.R.string.cancel, null)
+            .setNegativeButton(android.R.string.cancel) { _, _ ->
+                if (livePreview) setValue(originalValue)
+            }
+            .setOnCancelListener {
+                if (livePreview) setValue(originalValue)
+            }
             .show()
     }
 

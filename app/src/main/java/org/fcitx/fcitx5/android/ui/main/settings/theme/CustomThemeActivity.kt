@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
@@ -28,6 +29,7 @@ import androidx.activity.result.contract.ActivityResultContract
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
@@ -37,6 +39,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.data.theme.Theme
+import org.fcitx.fcitx5.android.data.theme.Theme.Custom.CustomBackground.KeyContrastMode
 import org.fcitx.fcitx5.android.data.theme.ThemeFilesManager
 import org.fcitx.fcitx5.android.data.theme.ThemePreset
 import org.fcitx.fcitx5.android.ui.common.withLoadingDialog
@@ -53,7 +56,6 @@ import splitties.resources.styledColor
 import splitties.resources.styledDrawable
 import splitties.views.backgroundColor
 import splitties.views.bottomPadding
-import splitties.views.dsl.appcompat.switch
 import splitties.views.dsl.constraintlayout.above
 import splitties.views.dsl.constraintlayout.before
 import splitties.views.dsl.constraintlayout.below
@@ -79,6 +81,8 @@ import splitties.views.horizontalPadding
 import splitties.views.textAppearance
 import splitties.views.topPadding
 import java.io.File
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 class CustomThemeActivity : AppCompatActivity() {
 
@@ -124,14 +128,11 @@ class CustomThemeActivity : AppCompatActivity() {
         }
     }
 
-    private val variantLabel by lazy {
-        createTextView(R.string.dark_keys, ripple = true)
+    private val keyContrastLabel by lazy {
+        createTextView(R.string.key_contrast_mode, ripple = true)
     }
-    private val variantSwitch by lazy {
-        switch {
-            // Use dark keys by default
-            isChecked = false
-        }
+    private val keyContrastValue by lazy {
+        createTextView(ripple = true)
     }
 
     private val brightnessLabel by lazy {
@@ -164,20 +165,20 @@ class CustomThemeActivity : AppCompatActivity() {
             add(cropLabel, lParams(matchConstraints, lineHeight) {
                 below(previewUi.root)
                 centerHorizontally(itemMargin)
-                above(variantLabel)
+                above(keyContrastLabel)
             })
-            add(variantLabel, lParams(matchConstraints, lineHeight) {
+            add(keyContrastLabel, lParams(matchConstraints, lineHeight) {
                 below(cropLabel)
                 startOfParent(itemMargin)
-                before(variantSwitch)
+                before(keyContrastValue)
                 above(brightnessLabel)
             })
-            add(variantSwitch, lParams(wrapContent, lineHeight) {
-                topToTopOf(variantLabel)
+            add(keyContrastValue, lParams(wrapContent, lineHeight) {
+                topToTopOf(keyContrastLabel)
                 endOfParent(itemMargin)
             })
             add(brightnessLabel, lParams(matchConstraints, lineHeight) {
-                below(variantLabel)
+                below(keyContrastLabel)
                 startOfParent(itemMargin)
                 before(brightnessValue)
                 above(brightnessSeekBar)
@@ -235,20 +236,92 @@ class CustomThemeActivity : AppCompatActivity() {
             block(backgroundStates, theme.backgroundImage!!)
     }
 
-    private fun BackgroundStates.setKeyVariant(
-        background: Theme.Custom.CustomBackground,
-        darkKeys: Boolean
+    private fun keyContrastModeLabel(mode: KeyContrastMode) = when (mode) {
+        KeyContrastMode.Adaptive -> R.string.key_contrast_mode_adaptive
+        KeyContrastMode.DarkText -> R.string.key_contrast_mode_dark_text
+        KeyContrastMode.LightText -> R.string.key_contrast_mode_light_text
+    }
+
+    private fun updateKeyContrastValue(mode: KeyContrastMode) {
+        keyContrastValue.setText(keyContrastModeLabel(mode))
+    }
+
+    private fun templateForKeyContrastMode(mode: KeyContrastMode, estimatedBackgroundColor: Int) =
+        when (mode) {
+            KeyContrastMode.DarkText -> ThemePreset.TransparentLight
+            KeyContrastMode.LightText -> ThemePreset.TransparentDark
+            KeyContrastMode.Adaptive -> {
+                if (ColorUtils.calculateLuminance(estimatedBackgroundColor) > 0.46) {
+                    ThemePreset.TransparentLight
+                } else {
+                    ThemePreset.TransparentDark
+                }
+            }
+        }
+
+    private fun BackgroundStates.estimateBackgroundColor(brightness: Int): Int {
+        val bitmap = croppedBitmap
+        val step = max(1, max(bitmap.width, bitmap.height) / 48)
+        var red = 0L
+        var green = 0L
+        var blue = 0L
+        var count = 0L
+        var y = 0
+        while (y < bitmap.height) {
+            var x = 0
+            while (x < bitmap.width) {
+                val pixel = bitmap.getPixel(x, y)
+                val alpha = Color.alpha(pixel) / 255f
+                red += (Color.red(pixel) * alpha).roundToInt()
+                green += (Color.green(pixel) * alpha).roundToInt()
+                blue += (Color.blue(pixel) * alpha).roundToInt()
+                count++
+                x += step
+            }
+            y += step
+        }
+        if (count == 0L) return Color.BLACK
+        val factor = brightness.coerceIn(0, 100) / 100f
+        return Color.rgb(
+            (red.toFloat() / count * factor).roundToInt().coerceIn(0, 255),
+            (green.toFloat() / count * factor).roundToInt().coerceIn(0, 255),
+            (blue.toFloat() / count * factor).roundToInt().coerceIn(0, 255)
+        )
+    }
+
+    private fun BackgroundStates.rebuildTheme(
+        mode: KeyContrastMode = theme.backgroundImage?.keyContrastMode ?: KeyContrastMode.Adaptive
     ) {
-        val template = if (darkKeys) ThemePreset.TransparentLight else ThemePreset.TransparentDark
+        val brightness = brightnessSeekBar.progress
+        val estimatedBackgroundColor = estimateBackgroundColor(brightness)
+        val template = templateForKeyContrastMode(mode, estimatedBackgroundColor)
         theme = template.deriveCustomBackground(
             theme.name,
-            background.croppedFilePath,
-            background.srcFilePath,
-            brightnessSeekBar.progress,
-            background.cropRect,
-            background.cropRotation
+            croppedImageFile.path,
+            srcImageFile.path,
+            brightness,
+            cropRect,
+            cropRotation,
+            mode,
+            estimatedBackgroundColor
         )
+        updateKeyContrastValue(mode)
         previewUi.setTheme(theme, filteredDrawable)
+    }
+
+    private fun BackgroundStates.showKeyContrastModeDialog() {
+        val modes = KeyContrastMode.entries.toTypedArray()
+        val currentMode = theme.backgroundImage?.keyContrastMode ?: KeyContrastMode.Adaptive
+        AlertDialog.Builder(this@CustomThemeActivity)
+            .setTitle(R.string.key_contrast_mode)
+            .setSingleChoiceItems(
+                modes.map { getString(keyContrastModeLabel(it)) }.toTypedArray(),
+                modes.indexOf(currentMode)
+            ) { dialog, which ->
+                rebuildTheme(modes[which])
+                dialog.dismiss()
+            }
+            .show()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -273,15 +346,15 @@ class CustomThemeActivity : AppCompatActivity() {
                 croppedImageFile = c
                 srcImageFile = s
             }
-            // Use dark keys by default
+            // The first crop result will pick a readable key contrast mode.
             theme = ThemePreset.TransparentDark.deriveCustomBackground(n, c.path, s.path)
         }
         previewUi = KeyboardPreviewUi(this, theme)
         if (theme.backgroundImage == null) {
             brightnessLabel.visibility = View.GONE
             cropLabel.visibility = View.GONE
-            variantLabel.visibility = View.GONE
-            variantSwitch.visibility = View.GONE
+            keyContrastLabel.visibility = View.GONE
+            keyContrastValue.visibility = View.GONE
             brightnessSeekBar.visibility = View.GONE
         }
         enableEdgeToEdge()
@@ -303,7 +376,7 @@ class CustomThemeActivity : AppCompatActivity() {
         setContentView(ui)
         whenHasBackground { background ->
             brightnessSeekBar.progress = background.brightness
-            variantSwitch.isChecked = !theme.isDark
+            updateKeyContrastValue(background.keyContrastMode)
             launcher = registerForActivityResult(CropContract()) {
                 when (it) {
                     CropResult.Fail -> {
@@ -330,13 +403,8 @@ class CustomThemeActivity : AppCompatActivity() {
             cropLabel.setOnClickListener {
                 launchCrop(previewUi.intrinsicWidth, previewUi.intrinsicHeight)
             }
-            variantLabel.setOnClickListener {
-                variantSwitch.isChecked = !variantSwitch.isChecked
-            }
-            // attach OnCheckedChangeListener after calling setChecked (isChecked in kotlin)
-            variantSwitch.setOnCheckedChangeListener { _, isChecked ->
-                setKeyVariant(background, darkKeys = isChecked)
-            }
+            keyContrastLabel.setOnClickListener { showKeyContrastModeDialog() }
+            keyContrastValue.setOnClickListener { showKeyContrastModeDialog() }
             brightnessSeekBar.setOnSeekBarChangeListener(object :
                 SeekBar.OnSeekBarChangeListener {
                 override fun onStartTrackingTouch(bar: SeekBar) {}
@@ -387,7 +455,7 @@ class CustomThemeActivity : AppCompatActivity() {
         val progress = brightnessSeekBar.progress
         brightnessValue.text = "$progress%"
         filteredDrawable.colorFilter = DarkenColorFilter(100 - progress)
-        previewUi.setBackground(filteredDrawable)
+        rebuildTheme()
     }
 
     private fun cancel() {

@@ -23,14 +23,18 @@ import androidx.annotation.ColorInt
 import androidx.annotation.DrawableRes
 import androidx.annotation.FloatRange
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.updateLayoutParams
 import org.fcitx.fcitx5.android.R
+import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.data.theme.Theme
 import org.fcitx.fcitx5.android.data.theme.ThemeManager
+import org.fcitx.fcitx5.android.data.theme.ThemePrefs.KeyMaterial
 import org.fcitx.fcitx5.android.data.theme.ThemePrefs.PunctuationPosition
 import org.fcitx.fcitx5.android.input.AutoScaleTextView
 import org.fcitx.fcitx5.android.input.keyboard.KeyDef.Appearance.Border
 import org.fcitx.fcitx5.android.input.keyboard.KeyDef.Appearance.Variant
+import org.fcitx.fcitx5.android.utils.alpha
 import org.fcitx.fcitx5.android.utils.styledFloat
 import org.fcitx.fcitx5.android.utils.unset
 import splitties.dimensions.dp
@@ -60,12 +64,23 @@ abstract class KeyView(ctx: Context, val theme: Theme, val def: KeyDef.Appearanc
     val radius: Float
     val hMargin: Int
     val vMargin: Int
+    private val materialStyle: KeyMaterialStyle?
+    private val pressScale: Float
+    private val disableAnimation: Boolean
 
     init {
         val prefs = ThemeManager.prefs
         bordered = prefs.keyBorder.getValue()
         borderStroke = prefs.keyBorderStroke.getValue()
         rippled = prefs.keyRippleEffect.getValue()
+        materialStyle = when (prefs.keyMaterial.getValue()) {
+            KeyMaterial.Default -> null
+            KeyMaterial.Glass -> KeyMaterialStyle.Glass
+            KeyMaterial.FrostedGlass -> KeyMaterialStyle.FrostedGlass
+            KeyMaterial.LiquidGlass -> KeyMaterialStyle.LiquidGlass
+        }
+        pressScale = prefs.keyPressScale.getValue() / 100f
+        disableAnimation = AppPrefs.getInstance().advanced.disableAnimation.getValue()
         radius = dp(prefs.keyRadius.getValue().toFloat())
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val hMarginPref =
@@ -109,6 +124,78 @@ abstract class KeyView(ctx: Context, val theme: Theme, val def: KeyDef.Appearanc
         isDuplicateParentStateEnabled = true
     }
 
+    private fun materialBackgroundColor(color: Int): Int {
+        val mixed = when (materialStyle) {
+            KeyMaterialStyle.FrostedGlass ->
+                ColorUtils.blendARGB(color, Color.WHITE, if (theme.isDark) 0.24f else 0.34f)
+            KeyMaterialStyle.LiquidGlass ->
+                ColorUtils.blendARGB(color, Color.WHITE, if (theme.isDark) 0.08f else 0.12f)
+            else -> color
+        }
+        val alpha = when (materialStyle) {
+            KeyMaterialStyle.Glass -> if (theme.isDark) 0.24f else 0.34f
+            KeyMaterialStyle.FrostedGlass -> if (theme.isDark) 0.72f else 0.82f
+            KeyMaterialStyle.LiquidGlass -> if (theme.isDark) 0.28f else 0.40f
+            null -> 1f
+        }
+        return mixed.alpha(alpha)
+    }
+
+    private fun materialStrokeColor(): Int = when (materialStyle) {
+        KeyMaterialStyle.Glass ->
+            if (theme.isDark) Color.WHITE.alpha(0.34f) else Color.BLACK.alpha(0.16f)
+        KeyMaterialStyle.FrostedGlass ->
+            if (theme.isDark) Color.WHITE.alpha(0.18f) else Color.BLACK.alpha(0.07f)
+        KeyMaterialStyle.LiquidGlass ->
+            if (theme.isDark) Color.WHITE.alpha(0.62f) else Color.BLACK.alpha(0.18f)
+        null -> Color.TRANSPARENT
+    }
+
+    private fun materialEdgeStrength(): Float = when (materialStyle) {
+        KeyMaterialStyle.LiquidGlass -> 0.42f
+        else -> 1f
+    }
+
+    private fun materialShadowColor(): Int =
+        if (theme.isDark) Color.BLACK.alpha(0.65f) else Color.BLACK.alpha(0.28f)
+
+    private fun keyBackgroundColorForVariant(variant: Variant): Int = when (variant) {
+        Variant.Normal, Variant.AltForeground -> theme.keyBackgroundColor
+        Variant.Alternative -> theme.altKeyBackgroundColor
+        Variant.Accent -> theme.accentKeyBackgroundColor
+    }
+
+    protected fun keyContentColor(variant: Variant, alt: Boolean = false): Int {
+        val preferred = when {
+            variant == Variant.Accent -> theme.accentKeyTextColor
+            alt || variant == Variant.AltForeground || variant == Variant.Alternative ->
+                theme.altKeyTextColor
+            else -> theme.keyTextColor
+        }
+        val adaptiveCustomBackground =
+            (theme as? Theme.Custom)?.backgroundImage?.keyContrastMode ==
+                    Theme.Custom.CustomBackground.KeyContrastMode.Adaptive
+        val shouldProtectContrast = materialStyle != null || adaptiveCustomBackground
+        if (!shouldProtectContrast) return preferred
+        val materialColor = if (materialStyle != null) {
+            materialBackgroundColor(keyBackgroundColorForVariant(variant))
+        } else {
+            keyBackgroundColorForVariant(variant)
+        }
+        return readableMaterialContentColor(
+            preferred,
+            materialColor,
+            estimatedKeyboardBackdropColor(theme),
+            minContrast = if (materialStyle == KeyMaterialStyle.FrostedGlass ||
+                adaptiveCustomBackground
+            ) {
+                4.5
+            } else {
+                3.0
+            }
+        )
+    }
+
     init {
         // trigger setEnabled(true)
         isEnabled = true
@@ -118,21 +205,29 @@ abstract class KeyView(ctx: Context, val theme: Theme, val def: KeyDef.Appearanc
             id = def.viewId
         }
         // key border
-        if ((bordered && def.border != Border.Off) || def.border == Border.On) {
-            val bkgColor = when (def.variant) {
-                Variant.Normal, Variant.AltForeground -> theme.keyBackgroundColor
-                Variant.Alternative -> theme.altKeyBackgroundColor
-                Variant.Accent -> theme.accentKeyBackgroundColor
-            }
+        val drawKeyBackground = (bordered && def.border != Border.Off) ||
+                (materialStyle != null && def.border != Border.Off && def.border != Border.Special) ||
+                def.border == Border.On
+        if (drawKeyBackground) {
+            val bkgColor = keyBackgroundColorForVariant(def.variant)
             val borderOrShadowWidth = dp(1)
             // background: key border
-            appearanceView.background = if (borderStroke) borderedKeyBackgroundDrawable(
-                bkgColor, theme.keyShadowColor,
-                radius, borderOrShadowWidth, hMargin, vMargin
-            ) else shadowedKeyBackgroundDrawable(
-                bkgColor, theme.keyShadowColor,
-                radius, borderOrShadowWidth, hMargin, vMargin
-            )
+            appearanceView.background = when {
+                materialStyle != null -> materialKeyBackgroundDrawable(
+                    materialBackgroundColor(bkgColor), materialStrokeColor(),
+                    materialShadowColor(), radius, borderOrShadowWidth, hMargin, vMargin,
+                    materialStyle,
+                    edgeStrength = materialEdgeStrength()
+                )
+                borderStroke -> borderedKeyBackgroundDrawable(
+                    bkgColor, theme.keyShadowColor,
+                    radius, borderOrShadowWidth, hMargin, vMargin
+                )
+                else -> shadowedKeyBackgroundDrawable(
+                    bkgColor, theme.keyShadowColor,
+                    radius, borderOrShadowWidth, hMargin, vMargin
+                )
+            }
             // foreground: press highlight or ripple
             setupPressHighlight()
         } else {
@@ -146,6 +241,10 @@ abstract class KeyView(ctx: Context, val theme: Theme, val def: KeyDef.Appearanc
     }
 
     private fun setupPressHighlight(mask: Drawable? = null) {
+        if (materialStyle == KeyMaterialStyle.LiquidGlass) {
+            appearanceView.foreground = null
+            return
+        }
         appearanceView.foreground = if (rippled) {
             RippleDrawable(
                 ColorStateList.valueOf(theme.keyPressHighlightColor), null,
@@ -174,8 +273,43 @@ abstract class KeyView(ctx: Context, val theme: Theme, val def: KeyDef.Appearanc
     }
 
     private fun highlightMaskDrawable(@ColorInt color: Int): Drawable {
-        return if (bordered) insetRadiusDrawable(hMargin, vMargin, radius, color)
+        return if (bordered || materialStyle != null) {
+            insetRadiusDrawable(hMargin, vMargin, radius, color)
+        }
         else InsetDrawable(ColorDrawable(color), hMargin, vMargin, hMargin, vMargin)
+    }
+
+    override fun setPressed(pressed: Boolean) {
+        super.setPressed(pressed)
+        appearanceView.refreshDrawableState()
+        if (materialStyle == KeyMaterialStyle.LiquidGlass) {
+            appearanceView.animate().cancel()
+            appearanceView.scaleX = 1f
+            appearanceView.scaleY = 1f
+            return
+        }
+        if (pressScale >= 1f) return
+        val targetScale = when {
+            pressed -> pressScale
+            else -> 1f
+        }
+        appearanceView.animate().cancel()
+        if (disableAnimation) {
+            appearanceView.scaleX = targetScale
+            appearanceView.scaleY = targetScale
+        } else {
+            appearanceView.animate()
+                .scaleX(targetScale)
+                .scaleY(targetScale)
+                .setDuration(
+                    if (materialStyle == KeyMaterialStyle.LiquidGlass) {
+                        if (pressed) 120L else 180L
+                    } else {
+                        if (pressed) 45L else 120L
+                    }
+                )
+                .start()
+        }
     }
 
     override fun setEnabled(enabled: Boolean) {
@@ -187,6 +321,25 @@ abstract class KeyView(ctx: Context, val theme: Theme, val def: KeyDef.Appearanc
         val (x, y) = cachedLocation.also { appearanceView.getLocationInWindow(it) }
         cachedBounds.set(x, y, x + appearanceView.width, y + appearanceView.height)
         boundsValid = true
+    }
+
+    internal fun drawWithVisualBackgroundHidden(block: () -> Unit) {
+        val background = appearanceView.background
+        val foreground = appearanceView.foreground
+        if (background == null && foreground == null) {
+            block()
+            return
+        }
+        val backgroundAlpha = background?.alpha ?: 255
+        val foregroundAlpha = foreground?.alpha ?: 255
+        background?.alpha = 0
+        foreground?.alpha = 0
+        try {
+            block()
+        } finally {
+            background?.alpha = backgroundAlpha
+            foreground?.alpha = foregroundAlpha
+        }
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
@@ -217,9 +370,15 @@ abstract class KeyView(ctx: Context, val theme: Theme, val def: KeyDef.Appearanc
                 val minHeight = dp(26)
                 val hInset = dp(10)
                 val vInset = if (h < minHeight) 0 else min((h - minHeight) / 2, dp(16))
-                appearanceView.background = insetRadiusDrawable(
-                    hInset, vInset, bkgRadius, theme.spaceBarColor
-                )
+                appearanceView.background = if (materialStyle != null) {
+                    insetMaterialRadiusDrawable(
+                        hInset, vInset, bkgRadius, materialBackgroundColor(theme.spaceBarColor),
+                        materialStrokeColor(), materialShadowColor(), dp(1), materialStyle,
+                        edgeStrength = materialEdgeStrength()
+                    )
+                } else {
+                    insetRadiusDrawable(hInset, vInset, bkgRadius, theme.spaceBarColor)
+                }
                 // InsetDrawable sets padding to container view; remove padding to prevent text from bing clipped
                 appearanceView.padding = 0
                 // apply press highlight for background area
@@ -234,9 +393,15 @@ abstract class KeyView(ctx: Context, val theme: Theme, val def: KeyDef.Appearanc
                 val drawableSize = min(min(w, h), dp(35))
                 val hInset = (w - drawableSize) / 2
                 val vInset = (h - drawableSize) / 2
-                appearanceView.background = insetOvalDrawable(
-                    hInset, vInset, theme.accentKeyBackgroundColor
-                )
+                appearanceView.background = if (materialStyle != null) {
+                    insetMaterialOvalDrawable(
+                        hInset, vInset, materialBackgroundColor(theme.accentKeyBackgroundColor),
+                        materialStrokeColor(), materialShadowColor(), dp(1), materialStyle,
+                        edgeStrength = materialEdgeStrength()
+                    )
+                } else {
+                    insetOvalDrawable(hInset, vInset, theme.accentKeyBackgroundColor)
+                }
                 appearanceView.padding = 0
                 setupPressHighlight(
                     insetOvalDrawable(
@@ -261,11 +426,7 @@ open class TextKeyView(ctx: Context, theme: Theme, def: KeyDef.Appearance.Text) 
         // keep original typeface, apply textStyle only
         setTypeface(typeface, def.textStyle)
         setTextColor(
-            when (def.variant) {
-                Variant.Normal -> theme.keyTextColor
-                Variant.AltForeground, Variant.Alternative -> theme.altKeyTextColor
-                Variant.Accent -> theme.accentKeyTextColor
-            }
+            keyContentColor(def.variant)
         )
     }
 
@@ -290,10 +451,7 @@ class AltTextKeyView(ctx: Context, theme: Theme, def: KeyDef.Appearance.AltText)
         text = def.altText
         textDirection = View.TEXT_DIRECTION_FIRST_STRONG_LTR
         setTextColor(
-            when (def.variant) {
-                Variant.Normal, Variant.AltForeground, Variant.Alternative -> theme.altKeyTextColor
-                Variant.Accent -> theme.accentKeyTextColor
-            }
+            keyContentColor(def.variant, alt = true)
         )
     }
 
@@ -380,7 +538,7 @@ class AltTextKeyView(ctx: Context, theme: Theme, def: KeyDef.Appearance.AltText)
 @SuppressLint("ViewConstructor")
 class ImageKeyView(ctx: Context, theme: Theme, def: KeyDef.Appearance.Image) :
     KeyView(ctx, theme, def) {
-    val img = imageView { configure(theme, def.src, def.variant) }
+    val img = imageView { configure(def.src, keyContentColor(def.variant)) }
 
     init {
         appearanceView.apply {
@@ -391,16 +549,10 @@ class ImageKeyView(ctx: Context, theme: Theme, def: KeyDef.Appearance.Image) :
     }
 }
 
-private fun ImageView.configure(theme: Theme, @DrawableRes src: Int, variant: Variant) = apply {
+private fun ImageView.configure(@DrawableRes src: Int, @ColorInt tint: Int) = apply {
     isClickable = false
     isFocusable = false
-    imageTintList = ColorStateList.valueOf(
-        when (variant) {
-            Variant.Normal -> theme.keyTextColor
-            Variant.AltForeground, Variant.Alternative -> theme.altKeyTextColor
-            Variant.Accent -> theme.accentKeyTextColor
-        }
-    )
+    imageTintList = ColorStateList.valueOf(tint)
     imageResource = src
 }
 
@@ -408,7 +560,7 @@ private fun ImageView.configure(theme: Theme, @DrawableRes src: Int, variant: Va
 class ImageTextKeyView(ctx: Context, theme: Theme, def: KeyDef.Appearance.ImageText) :
     TextKeyView(ctx, theme, def) {
     val img = imageView {
-        configure(theme, def.src, def.variant)
+        configure(def.src, keyContentColor(def.variant))
     }
 
     init {

@@ -97,8 +97,17 @@ sealed class Theme : Parcelable {
             val srcFilePath: String,
             val brightness: Int = 70,
             val cropRect: @Serializable(RectSerializer::class) Rect?,
-            val cropRotation: Int = 0
+            val cropRotation: Int = 0,
+            val keyContrastMode: KeyContrastMode = KeyContrastMode.Adaptive,
+            val estimatedBackgroundColor: Int? = null
         ) : Parcelable {
+            @Serializable
+            enum class KeyContrastMode {
+                Adaptive,
+                DarkText,
+                LightText
+            }
+
             fun toDrawable(): Drawable? {
                 val cropped = File(croppedFilePath)
                 if (!cropped.exists()) return null
@@ -227,7 +236,10 @@ sealed class Theme : Parcelable {
             originBackgroundImage: String,
             brightness: Int = 70,
             cropBackgroundRect: Rect? = null,
-            cropBackgroundRotation: Int = 0
+            cropBackgroundRotation: Int = 0,
+            keyContrastMode: Custom.CustomBackground.KeyContrastMode =
+                Custom.CustomBackground.KeyContrastMode.Adaptive,
+            estimatedBackgroundColor: Int? = null
         ) = Custom(
             name,
             isDark,
@@ -236,7 +248,9 @@ sealed class Theme : Parcelable {
                 originBackgroundImage,
                 brightness,
                 cropBackgroundRect,
-                cropBackgroundRotation
+                cropBackgroundRotation,
+                keyContrastMode,
+                estimatedBackgroundColor
             ),
             backgroundColor,
             barColor,

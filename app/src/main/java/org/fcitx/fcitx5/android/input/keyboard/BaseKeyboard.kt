@@ -53,6 +53,12 @@ abstract class BaseKeyboard(
 
     var keyActionListener: KeyActionListener? = null
 
+    var keyVisualEffectListener: KeyVisualEffectListener? = null
+        set(value) {
+            field = value
+            keyViews.forEach { it.keyVisualEffectListener = value }
+        }
+
     private val prefs = AppPrefs.getInstance()
 
     private val popupOnKeyPress by prefs.keyboard.popupOnKeyPress
@@ -81,6 +87,7 @@ abstract class BaseKeyboard(
 
     private val bounds = Rect()
     private val keyRows: List<ConstraintLayout>
+    private val keyViews = mutableListOf<KeyView>()
 
     /**
      * HashMap of [PointerId (Int)][MotionEvent.getPointerId] to [KeyView]
@@ -154,6 +161,8 @@ abstract class BaseKeyboard(
             is KeyDef.Appearance.Text -> TextKeyView(context, theme, def.appearance)
             is KeyDef.Appearance.Image -> ImageKeyView(context, theme, def.appearance)
         }.apply {
+            keyViews += this
+            keyVisualEffectListener = this@BaseKeyboard.keyVisualEffectListener
             soundEffect = when (def) {
                 is SpaceKey -> InputFeedbacks.SoundEffect.SpaceBar
                 is MiniSpaceKey -> InputFeedbacks.SoundEffect.SpaceBar

@@ -108,6 +108,7 @@ abstract class ManagedPreferenceCategory(
         step: Int = 1,
         @StringRes
         defaultLabel: Int? = null,
+        livePreview: Boolean = false,
         enableUiOn: (() -> Boolean)? = null
     ): ManagedPreference.PInt {
         val pref = ManagedPreference.PInt(sharedPreferences, key, defaultValue)
@@ -118,7 +119,7 @@ abstract class ManagedPreferenceCategory(
             )
         else
             ManagedPreferenceUi.SeekBarInt(
-                title, key, defaultValue, min, max, unit, step, defaultLabel, enableUiOn
+                title, key, defaultValue, min, max, unit, step, defaultLabel, enableUiOn, livePreview
             )
         pref.register()
         ui.registerUi()

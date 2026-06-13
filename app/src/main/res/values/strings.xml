@@ -104,6 +104,15 @@
     <string name="input_method_options">Input Method Options</string>
     <string name="theme">Theme</string>
     <string name="key_ripple_effect">Enable key ripple effect</string>
+    <string name="key_release_ripple_effect">Enable key release ripple effect</string>
+    <string name="key_press_scale">Key press scale</string>
+    <string name="key_material">Key material</string>
+    <string name="key_material_default">Default</string>
+    <string name="key_material_glass">Translucent glass</string>
+    <string name="key_material_frosted_glass">Frosted glass</string>
+    <string name="key_material_liquid_glass">Liquid glass</string>
+    <string name="keyboard_background_blur_radius">Keyboard background blur radius</string>
+    <string name="keyboard_background_dim_amount">Keyboard background dim amount</string>
     <string name="key_border">Enable key border</string>
     <string name="brightness">Brightness</string>
     <string name="key_radius">Key radius</string>
@@ -114,6 +123,10 @@
     <string name="configure">Configure</string>
     <string name="choose_image">Choose Image…</string>
     <string name="dark_keys">Dark Keys</string>
+    <string name="key_contrast_mode">Key contrast</string>
+    <string name="key_contrast_mode_adaptive">Adaptive</string>
+    <string name="key_contrast_mode_dark_text">Dark text</string>
+    <string name="key_contrast_mode_light_text">Light text</string>
     <string name="recrop_image">Re-Crop Image</string>
     <string name="navbar_background">Navigation bar background</string>
     <string name="navbar_bkg_none">No background</string>

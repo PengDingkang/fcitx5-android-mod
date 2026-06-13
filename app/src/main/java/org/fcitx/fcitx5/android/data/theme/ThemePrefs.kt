@@ -43,6 +43,46 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
 
     val keyRippleEffect = switch(R.string.key_ripple_effect, "key_ripple_effect", false)
 
+    val keyReleaseRippleEffect =
+        switch(R.string.key_release_ripple_effect, "key_release_ripple_effect", true)
+
+    val keyPressScale =
+        int(R.string.key_press_scale, "key_press_scale", 96, 92, 100, "%", livePreview = true)
+
+    enum class KeyMaterial(override val stringRes: Int) : ManagedPreferenceEnum {
+        Default(R.string.key_material_default),
+        Glass(R.string.key_material_glass),
+        FrostedGlass(R.string.key_material_frosted_glass),
+        LiquidGlass(R.string.key_material_liquid_glass);
+    }
+
+    val keyMaterial = enumList(
+        R.string.key_material,
+        "key_material",
+        KeyMaterial.Default
+    )
+
+    val keyboardBackgroundBlurRadius = int(
+        R.string.keyboard_background_blur_radius,
+        "keyboard_background_blur_radius",
+        0,
+        0,
+        32,
+        "dp",
+        enableUiOn = { Build.VERSION.SDK_INT >= Build.VERSION_CODES.S },
+        livePreview = true
+    )
+
+    val keyboardBackgroundDimAmount = int(
+        R.string.keyboard_background_dim_amount,
+        "keyboard_background_dim_amount",
+        0,
+        0,
+        80,
+        "%",
+        livePreview = true
+    )
+
     val keyHorizontalMargin: ManagedPreference.PInt
     val keyHorizontalMarginLandscape: ManagedPreference.PInt
 

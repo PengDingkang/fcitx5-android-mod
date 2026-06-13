@@ -7,6 +7,9 @@ package org.fcitx.fcitx5.android.ui.main.settings.theme
 
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
 import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.view.View
@@ -110,6 +113,11 @@ class KeyboardPreviewUi(override val ctx: Context, val theme: Theme) : Ui {
     private val bkg = imageView {
         scaleType = ImageView.ScaleType.CENTER_CROP
     }
+    private val backgroundDimOverlay = view(::View) {
+        isClickable = false
+        isFocusable = false
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
 
     private val barHeight = ctx.dp(40)
     private val fakeKawaiiBar = view(::View)
@@ -120,6 +128,9 @@ class KeyboardPreviewUi(override val ctx: Context, val theme: Theme) : Ui {
 
     private val fakeInputView = constraintLayout {
         add(bkg, lParams {
+            centerInParent()
+        })
+        add(backgroundDimOverlay, lParams(matchConstraints, matchConstraints) {
             centerInParent()
         })
         add(fakeKawaiiBar, lParams(height = dp(40)) {
@@ -212,8 +223,33 @@ class KeyboardPreviewUi(override val ctx: Context, val theme: Theme) : Ui {
         bkg.imageDrawable = drawable
     }
 
-    fun setTheme(theme: Theme, background: Drawable? = null) {
+    private fun setBackgroundEffects(theme: Theme, background: Drawable? = null) {
         setBackground(background ?: theme.backgroundDrawable(keyBorder))
+
+        val dimAmount = ThemeManager.prefs.keyboardBackgroundDimAmount.getValue()
+        backgroundDimOverlay.visibility = if (dimAmount > 0) View.VISIBLE else View.GONE
+        backgroundDimOverlay.backgroundColor = Color.argb(
+            (dimAmount * 255 / 100).coerceIn(0, 255),
+            0,
+            0,
+            0
+        )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val blurRadius = ThemeManager.prefs.keyboardBackgroundBlurRadius.getValue()
+            bkg.setRenderEffect(
+                if (blurRadius > 0) {
+                    val radius = ctx.dp(blurRadius).toFloat()
+                    RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
+                } else {
+                    null
+                }
+            )
+        }
+    }
+
+    fun setTheme(theme: Theme, background: Drawable? = null) {
+        setBackgroundEffects(theme, background)
         if (this::fakeKeyboardWindow.isInitialized) {
             fakeInputView.removeView(fakeKeyboardWindow)
         }

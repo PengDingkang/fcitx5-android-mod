@@ -104,6 +104,15 @@
     <string name="input_method_options">輸入法設定</string>
     <string name="theme">主題</string>
     <string name="key_ripple_effect">啟用按鍵水波紋特效</string>
+    <string name="key_release_ripple_effect">啟用按鍵釋放擴散特效</string>
+    <string name="key_press_scale">按下時按鍵縮放</string>
+    <string name="key_material">按鍵材質</string>
+    <string name="key_material_default">預設</string>
+    <string name="key_material_glass">通透玻璃</string>
+    <string name="key_material_frosted_glass">磨砂玻璃</string>
+    <string name="key_material_liquid_glass">液態玻璃</string>
+    <string name="keyboard_background_blur_radius">鍵盤背景模糊半徑</string>
+    <string name="keyboard_background_dim_amount">鍵盤背景暗化程度</string>
     <string name="key_border">啟用按鍵邊框</string>
     <string name="brightness">亮度</string>
     <string name="key_radius">按鍵圓角半徑</string>
@@ -114,6 +123,10 @@
     <string name="configure">配置</string>
     <string name="choose_image">選擇圖片…</string>
     <string name="dark_keys">深色按鍵</string>
+    <string name="key_contrast_mode">按鍵對比度</string>
+    <string name="key_contrast_mode_adaptive">自適應</string>
+    <string name="key_contrast_mode_dark_text">深色文字</string>
+    <string name="key_contrast_mode_light_text">淺色文字</string>
     <string name="recrop_image">重新裁剪圖片</string>
     <string name="navbar_background">導航列背景</string>
     <string name="navbar_bkg_none">無背景</string>

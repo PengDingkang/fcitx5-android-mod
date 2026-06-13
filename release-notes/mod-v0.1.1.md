@@ -22,12 +22,18 @@ Release build version: mod-v0.1.1-aN
 
 - Clipboard entries are split into Recent and Pinned sections, keeping recent clipboard history above pinned items.
 - The clipboard panel has a `+` action for manually adding pinned text.
+- Theme settings now include key material choices: Default, Translucent glass, Frosted glass, and Liquid glass.
+- Theme settings now include keyboard background blur, keyboard background dimming, key release ripple, and key press scale options.
+- Custom image background themes now have a Key contrast option with Adaptive, Dark text, and Light text modes.
 
 ## Changed
 
 - The add-pinned-text flow now uses clearer title, hint, and save labels instead of the generic clipboard edit wording.
+- Transparent and glass key styles apply readability protection for key and popup text on image backgrounds.
+- Custom image background brightness changes update the preview key contrast behavior immediately.
 
 ## Known Issues
 
 - This version is a preview release.
 - Primary test target is arm64-v8a.
+- Visual effects are still experimental and may look different across Android versions and device GPUs.

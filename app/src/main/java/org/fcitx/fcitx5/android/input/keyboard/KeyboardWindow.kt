@@ -107,6 +107,8 @@ class KeyboardWindow : InputWindow.SimpleInputWindow<KeyboardWindow>(), Essentia
         popup.listener
     }
 
+    var keyVisualEffectListener: KeyVisualEffectListener? = null
+
     // This will be called EXACTLY ONCE
     override fun onCreateView(): View {
         keyboardView = context.frameLayout(R.id.keyboard_view)
@@ -129,6 +131,7 @@ class KeyboardWindow : InputWindow.SimpleInputWindow<KeyboardWindow>(), Essentia
         currentKeyboard?.let {
             it.keyActionListener = keyActionListener
             it.popupActionListener = popupActionListener
+            it.keyVisualEffectListener = keyVisualEffectListener
             keyboardView.apply { add(it, lParams(matchParent, matchParent)) }
             it.onAttach()
             it.onReturnDrawableUpdate(returnKeyDrawable.resourceId)

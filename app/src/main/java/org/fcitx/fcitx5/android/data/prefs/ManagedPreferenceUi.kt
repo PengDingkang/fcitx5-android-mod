@@ -175,7 +175,8 @@ abstract class ManagedPreferenceUi<T : Preference>(
         val step: Int = 1,
         @StringRes
         val defaultLabel: Int? = null,
-        enableUiOn: (() -> Boolean)? = null
+        enableUiOn: (() -> Boolean)? = null,
+        val livePreview: Boolean = false
     ) : ManagedPreferenceUi<DialogSeekBarPreference>(key, enableUiOn) {
         override fun createUi(context: Context) = DialogSeekBarPreference(context).apply {
             key = this@SeekBarInt.key
@@ -190,6 +191,7 @@ abstract class ManagedPreferenceUi<T : Preference>(
             max = this@SeekBarInt.max
             unit = this@SeekBarInt.unit
             step = this@SeekBarInt.step
+            livePreview = this@SeekBarInt.livePreview
         }
     }
 
