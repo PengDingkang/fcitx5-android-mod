@@ -39,6 +39,7 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
         val pid = int("pid", 0)
         val editorInfoInspector = bool("editor_info_inspector", false)
         val needNotifications = bool("need_notifications", true)
+        val lastInputMethod = string("last_input_method", "")
     }
 
     inner class Advanced : ManagedPreferenceCategory(R.string.advanced, sharedPreferences) {
@@ -53,6 +54,12 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
         )
         val ignoreSystemWindowInsets = switch(
             R.string.ignore_system_window_insets, "ignore_system_window_insets", false
+        )
+        val restoreLastInputMethodOnStartup = switch(
+            R.string.restore_last_input_method_on_startup,
+            "restore_last_input_method_on_startup",
+            true,
+            R.string.restore_last_input_method_on_startup_summary
         )
     }
 
@@ -558,9 +565,11 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
             listOf(
                 internal.verboseLog,
                 internal.editorInfoInspector,
+                internal.lastInputMethod,
                 advanced.ignoreSystemCursor,
                 advanced.disableAnimation,
-                advanced.vivoKeypressWorkaround
+                advanced.vivoKeypressWorkaround,
+                advanced.restoreLastInputMethodOnStartup
             ).forEach {
                 it.putValueTo(this@edit)
             }

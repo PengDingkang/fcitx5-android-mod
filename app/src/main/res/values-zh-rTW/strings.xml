@@ -266,6 +266,8 @@
     <string name="theme_message_follow_system_day_night_mode_enabled">已設定「依據系統設定主題色調」，無法手動切換主題。</string>
     <string name="disable_it">停用此項</string>
     <string name="reset_keyboard_on_focus_change">焦點改變時切換回鍵盤</string>
+    <string name="restore_last_input_method_on_startup">啟動時恢復上次輸入法</string>
+    <string name="restore_last_input_method_on_startup_summary">Fcitx 因應用程式更新或程序重新啟動而重新啟動時，恢復上次選擇的輸入法，而不是退回鍵盤配置。</string>
     <string name="export_user_data">匯出使用者資料</string>
     <string name="import_user_data">匯入使用者資料</string>
     <string name="exception_user_data_filename">%1$s 副檔名並不是 fcitx5-android 使用者資料</string>

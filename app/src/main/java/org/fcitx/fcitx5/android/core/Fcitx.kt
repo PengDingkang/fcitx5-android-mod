@@ -115,10 +115,24 @@ class Fcitx(private val context: Context) : FcitxAPI, FcitxLifecycleOwner {
     override suspend fun setEnabledIme(array: Array<String>) =
         withFcitxContext { setEnabledInputMethods(array) }
 
-    override suspend fun toggleIme() = withFcitxContext { toggleInputMethod() }
-    override suspend fun activateIme(ime: String) = withFcitxContext { setInputMethod(ime) }
+    override suspend fun toggleIme() = withFcitxContext {
+        toggleInputMethod()
+        rememberCurrentInputMethod()
+        saveFcitxState()
+    }
+
+    override suspend fun activateIme(ime: String) = withFcitxContext {
+        setInputMethod(ime)
+        rememberCurrentInputMethod()
+        saveFcitxState()
+    }
+
     override suspend fun enumerateIme(forward: Boolean) =
-        withFcitxContext { nextInputMethod(forward) }
+        withFcitxContext {
+            nextInputMethod(forward)
+            rememberCurrentInputMethod()
+            saveFcitxState()
+        }
 
     override suspend fun currentIme() =
         withFcitxContext { inputMethodStatus() ?: inputMethodEntryCached }
@@ -499,6 +513,15 @@ class Fcitx(private val context: Context) : FcitxAPI, FcitxLifecycleOwner {
 
     private var firstRun by AppPrefs.getInstance().internal.firstRun
 
+    private fun rememberInputMethod(uniqueName: String) {
+        if (uniqueName.isBlank()) return
+        AppPrefs.getInstance().internal.lastInputMethod.setValue(uniqueName)
+    }
+
+    private fun rememberCurrentInputMethod() {
+        inputMethodStatus()?.uniqueName?.let(::rememberInputMethod)
+    }
+
     private fun handleFirstRunReadyEvent(event: FcitxEvent<*>) {
         if (event is FcitxEvent.ReadyEvent && firstRun) {
             firstRun = false
@@ -525,6 +548,21 @@ class Fcitx(private val context: Context) : FcitxAPI, FcitxLifecycleOwner {
             }
             is FcitxEvent.ClientPreeditEvent -> clientPreeditCached = event.data
             is FcitxEvent.InputPanelEvent -> inputPanelCached = event.data
+            is FcitxEvent.SwitchInputMethodEvent -> {
+                when (event.data.reason) {
+                    FcitxEvent.SwitchInputMethodEvent.Reason.Trigger,
+                    FcitxEvent.SwitchInputMethodEvent.Reason.Deactivate,
+                    FcitxEvent.SwitchInputMethodEvent.Reason.AltTrigger,
+                    FcitxEvent.SwitchInputMethodEvent.Reason.Activate,
+                    FcitxEvent.SwitchInputMethodEvent.Reason.Enumerate -> {
+                        rememberCurrentInputMethod()
+                        saveFcitxState()
+                    }
+                    FcitxEvent.SwitchInputMethodEvent.Reason.GroupChange,
+                    FcitxEvent.SwitchInputMethodEvent.Reason.CapabilityChanged,
+                    FcitxEvent.SwitchInputMethodEvent.Reason.Other -> {}
+                }
+            }
             else -> {}
         }
     }

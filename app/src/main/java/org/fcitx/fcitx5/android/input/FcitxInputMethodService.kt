@@ -715,23 +715,34 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         val uid = currentInputBinding.uid
         val pkgName = pkgNameCache.forUid(uid)
         Timber.d("onBindInput: uid=$uid pkg=$pkgName")
+        val firstBind = firstBindInput
+        if (firstBind) {
+            firstBindInput = false
+        }
+        val restoredIme = if (firstBind && prefs.advanced.restoreLastInputMethodOnStartup.getValue()) {
+            prefs.internal.lastInputMethod.getValue().takeIf { it.isNotBlank() }
+        } else {
+            null
+        }
+        // only use input method from subtype for the first `onBindInput`, because
+        // 1. fcitx has `ShareInputState` option, thus reading input method from subtype
+        //    everytime would ruin `ShareInputState=Program`
+        // 2. im from subtype should be read once, when user changes input method from other
+        //    app to a subtype of ours via system input method picker (on 34+)
+        val subtypeIme = if (
+            firstBind &&
+            restoredIme == null &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+        ) {
+            inputMethodManager.currentInputMethodSubtype?.let(SubtypeManager::inputMethodOf)
+        } else {
+            null
+        }
         postFcitxJob {
             // ensure InputContext has been created before focusing it
             activate(uid, pkgName)
-        }
-        if (firstBindInput) {
-            firstBindInput = false
-            // only use input method from subtype for the first `onBindInput`, because
-            // 1. fcitx has `ShareInputState` option, thus reading input method from subtype
-            //    everytime would ruin `ShareInputState=Program`
-            // 2. im from subtype should be read once, when user changes input method from other
-            //    app to a subtype of ours via system input method picker (on 34+)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                val subtype = inputMethodManager.currentInputMethodSubtype ?: return
-                val im = SubtypeManager.inputMethodOf(subtype)
-                postFcitxJob {
-                    activateIme(im)
-                }
+            (restoredIme ?: subtypeIme)?.let {
+                activateIme(it)
             }
         }
     }
